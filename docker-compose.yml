@@ -1,0 +1,29 @@
+services:
+
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: appass
+      POSTGRES_DB: app_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres_init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+
+  bot:
+    build:
+      context: ./services/bot
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:appass@postgres:5432/app_db
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-8795498445:AAFCVmLhbLC5QTTxE_KINl0yqmRPO8J17C8}
+      TOKEN_SECRET: ${TOKEN_SECRET:-ml-in-dota-default-secret}
+
+volumes:
+  postgres_data:

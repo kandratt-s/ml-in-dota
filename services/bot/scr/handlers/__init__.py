@@ -1,0 +1,1 @@
+from .registration import registration_router # точка важна, это относительный импорт
