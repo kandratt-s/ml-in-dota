@@ -1,0 +1,8 @@
+CREATE SCHEMA IF NOT EXISTS bot;
+
+CREATE TABLE IF NOT EXISTS bot.users (
+    id BIGSERIAL PRIMARY KEY,
+    telegram_id BIGINT UNIQUE NOT NULL,
+    token TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
