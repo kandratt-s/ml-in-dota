@@ -1,14 +1,22 @@
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir poetry==1.8.2
+# install uv
+RUN pip install --no-cache-dir uv==0.10.9
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
+# 1. Копируем корневые файлы workspace
+COPY pyproject.toml uv.lock ./
 
-RUN poetry config virtualenvs.create false && \
-    poetry install --only=main --no-interaction
+# 2. Копируем только pyproject.toml сервиса (для кеша зависимостей)
+COPY services/bot/pyproject.toml ./services/bot/
 
-COPY . .
+# 3. Установка зависимостей (кешируется при изменении только кода)
+RUN uv sync --package bot --no-dev --frozen
 
-CMD ["python", "main.py"]
+# 4. Копируем весь код сервиса
+COPY services/bot/ ./services/bot/
+
+WORKDIR /app/services/bot
+
+CMD ["uv", "run", "python", "main.py"]

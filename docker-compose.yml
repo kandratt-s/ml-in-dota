@@ -1,29 +1,72 @@
 services:
-
   postgres:
     image: postgres:16
     restart: always
-    environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: appass
-      POSTGRES_DB: app_db
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./data/postgres_init:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    # ports:
+    #   - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_network
 
   bot:
     build:
-      context: ./services/bot
-      dockerfile: Dockerfile
+      context: .  # Важно: контекст - КОРЕНЬ проекта, не services/bot!
+      dockerfile: services/bot/Dockerfile
     restart: always
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://app:appass@postgres:5432/app_db
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-8795498445:AAFCVmLhbLC5QTTxE_KINl0yqmRPO8J17C8}
-      TOKEN_SECRET: ${TOKEN_SECRET:-ml-in-dota-default-secret}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    networks:
+      - app_network
+
+  gsi_processor:
+    build:
+      context: .
+      dockerfile: services/gsi_processor/Dockerfile
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - app_network
 
 volumes:
   postgres_data:
+  redis_data:
+
+networks:
+  app_network:
+    driver: bridge
