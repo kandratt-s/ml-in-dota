@@ -4,7 +4,7 @@ from pydantic import SecretStr
 
 class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: SecretStr
-    TOKEN_SECRET: str = "ml-in-dota-default-secret"
+    TOKEN_SECRET: str
     DATABASE_URL: str
     
 

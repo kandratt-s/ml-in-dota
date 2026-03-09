@@ -10,6 +10,8 @@ from scr.models.database import get_db_manager
 from db.users import UserRepository
 from scr.schemas.users import UserCreate
 
+import logging
+
 registration_router = Router(name="registration")
 
 WELCOME_TEXT = (
@@ -105,6 +107,7 @@ async def process_password(message: Message, state: FSMContext) -> None:
             else:
                 user_data = UserCreate(telegram_id=message.from_user.id, token=token)
                 user = await user_repo.create_user(user_data)
+                logging.getLogger(__name__).info(f"User registered: {user.telegram_id}")
         
         await state.clear()
 
@@ -116,6 +119,8 @@ async def process_password(message: Message, state: FSMContext) -> None:
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
         )
+
+
         
     except Exception as e:
         await message.answer(
@@ -123,5 +128,4 @@ async def process_password(message: Message, state: FSMContext) -> None:
             reply_markup=main_menu_keyboard(),
         )
         # Log error for debugging
-        import logging
         logging.getLogger(__name__).error(f"Registration error: {e}")

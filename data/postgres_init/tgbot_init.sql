@@ -6,3 +6,5 @@ CREATE TABLE IF NOT EXISTS bot.users (
     token TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER ROLE app SET search_path TO bot, public;
