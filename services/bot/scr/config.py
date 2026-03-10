@@ -6,7 +6,14 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: SecretStr
     TOKEN_SECRET: str
     DATABASE_URL: str
-    
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_PASSWORD: SecretStr
+
+    @property
+    def redis_url(self) -> str:
+        return f"redis://:{self.REDIS_PASSWORD.get_secret_value()}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+
 
     model_config = SettingsConfigDict(
         env_file=".env",

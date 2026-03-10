@@ -50,18 +50,18 @@ services:
     networks:
       - app_network
 
-  gsi_processor:
-    build:
-      context: .
-      dockerfile: services/gsi_processor/Dockerfile
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    networks:
-      - app_network
+  # gsi_processor:
+  #   build:
+  #     context: .
+  #     dockerfile: services/gsi_processor/Dockerfile
+  #   restart: always
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env
+  #   networks:
+  #     - app_network
 
 volumes:
   postgres_data:
