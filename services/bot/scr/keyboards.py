@@ -8,6 +8,8 @@ def main_menu_keyboard() -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text="🔄 Перерегистрация"),
                 KeyboardButton(text="🔑 Мой токен"),
+                KeyboardButton(text="🎮 Play Dota 2"),
+                KeyboardButton(text="📊 Stop play Dota 2")
             ],
         ],
         resize_keyboard=True,

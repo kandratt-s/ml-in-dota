@@ -6,3 +6,9 @@ class RegistrationStates(StatesGroup):
 
     waiting_for_account_id = State()
     waiting_for_password = State()
+
+
+class DotaPlayStates(StatesGroup):
+    """FSM states for the Dota Play flow."""
+
+    is_playing = State()
