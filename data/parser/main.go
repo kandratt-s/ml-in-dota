@@ -6,19 +6,26 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/kandratt-s/ml-in-dota.git/data/parsed/postgres"
 	"github.com/kandratt-s/ml-in-dota.git/data/parsed/utils"
 )
 
-// worker — это "рабочий", который берет задачу из канала и выполняет её
-func worker(id int, jobs <-chan string, wq *sync.WaitGroup) {
+func workerParse(id int, jobs <-chan string, dbChan chan<- postgres.FullMatch, wq *sync.WaitGroup) {
 	for filePath := range jobs {
 		fmt.Printf("Воркер #%d взял матч: %s\n", id, filePath)
-		makeOneMatch(filePath)
+		fm, err := makeOneMatch(filePath)
+
+		if err != nil {
+			fmt.Print("ne poluchilos u make one match main26")
+		} else {
+			dbChan <- fm
+		}
+
 		wq.Done()
 	}
 }
 
-func makeOneMatch(filePath string) {
+func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 	var wgParse sync.WaitGroup
 
 	visionChan := make(chan []utils.VisionEnemeyTeam, 1)
@@ -69,7 +76,7 @@ func makeOneMatch(filePath string) {
 	for err := range errChan {
 		if err != nil {
 			log.Printf("Ошибка в матче %s: %v", filePath, err)
-			return
+			return postgres.FullMatch{}, err
 		}
 	}
 
@@ -77,21 +84,34 @@ func makeOneMatch(filePath string) {
 	itemData := <-itemsChan
 	generalData := <-generalChan
 
-	// Здесь будет твоя логика объединения данных (сшивка по game_time)
-
-	fmt.Print(visionData[1000], itemData[1000], generalData[1000])
+	return postgres.FullMatch{
+		MatchId: generalData[0].MatchID,
+		General: generalData,
+		Items:   itemData,
+		Vision:  visionData,
+	}, nil
 
 }
 
 func main() {
-	numWorkers := runtime.NumCPU()
-	fmt.Printf("Запуск пула на %d воркеров\n", numWorkers)
+	db := postgres.ConnectDB()
+	if db == nil {
+		fmt.Printf("ne udalos conn db")
+		return
+	}
+	defer db.Close()
 
+	dbChan := make(chan postgres.FullMatch, 20)
+	dbDone := make(chan bool)
+
+	go postgres.SaveWorker(db, dbChan, dbDone)
+
+	numWorkers := runtime.NumCPU()
 	jobs := make(chan string, 1000)
 	var wq sync.WaitGroup
 
 	for w := 1; w <= numWorkers; w++ {
-		go worker(w, jobs, &wq)
+		go workerParse(w, jobs, dbChan, &wq)
 	}
 
 	for i := 0; i < 1000; i++ {
@@ -102,4 +122,7 @@ func main() {
 	close(jobs)
 
 	wq.Wait()
+
+	close(dbChan)
+	<-dbDone
 }

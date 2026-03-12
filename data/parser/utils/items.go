@@ -17,33 +17,22 @@ type rawItemLine struct {
 	Unit      string  `json:"unit"`
 }
 
-// -----------------------------------------------------------
-// 1. СТРУКТУРЫ ДАННЫХ
-// -----------------------------------------------------------
-
-// ItemHeroData представляет инвентарь конкретного героя в конкретный момент времени
 type ItemHeroData struct {
 	HeroID      string   `json:"hero_id"`
 	Items       []string `json:"items"`
 	BKBCooldown float32  `json:"bkb_cooldown"`
 }
 
-// ItemsGameState представляет состояние предметов всех героев для одной секунды матча
 type ItemsGameState struct {
 	MatchID  int64          `json:"match_id"`
 	GameTime int            `json:"game_time"`
 	Heroes   []ItemHeroData `json:"heroes"`
 }
 
-// inventoryState используется внутри воркера для отслеживания текущего состояния вещей
 type inventoryState struct {
 	items           []string
 	lastBKBUsedTime float64
 }
-
-// -----------------------------------------------------------
-// 2. ОСНОВНОЙ ВОРКЕР
-// -----------------------------------------------------------
 
 func ParseItemsWorker(filePath string) ([]ItemsGameState, error) {
 	file, err := os.Open(filePath)
@@ -52,15 +41,14 @@ func ParseItemsWorker(filePath string) ([]ItemsGameState, error) {
 	}
 	defer file.Close()
 
-	// Pre-allocation: 2500 секунд в среднем на матч
 	results := make([]ItemsGameState, 0, 3500)
 	var currentFrame *ItemsGameState
 
 	var currentMatchID int64
 	inventories := make(map[string]*inventoryState, 10)
 	slotToHero := make(map[int]string, 10)
+	lastProcessedTime := -99999
 
-	// Используем мапу только для быстрой проверки расходников
 	consumables := map[string]struct{}{
 		"item_tango": {}, "item_clarity": {}, "item_flask": {},
 		"item_enchanted_mango": {}, "item_ward_observer": {},
@@ -75,8 +63,16 @@ func ParseItemsWorker(filePath string) ([]ItemsGameState, error) {
 		}
 
 		lineTime := int(line.Time)
+		if lastProcessedTime != -99999 && lineTime > lastProcessedTime+1 {
+			for t := lastProcessedTime + 1; t < lineTime; t++ {
+				results = append(results, ItemsGameState{
+					MatchID:  currentMatchID,
+					GameTime: t,
+					Heroes:   []ItemHeroData{},
+				})
+			}
+		}
 
-		// Смена кадра
 		if line.Type != "" && (currentFrame == nil || currentFrame.GameTime != lineTime) {
 			if currentFrame != nil {
 				results = append(results, *currentFrame)
@@ -86,6 +82,7 @@ func ParseItemsWorker(filePath string) ([]ItemsGameState, error) {
 				GameTime: lineTime,
 				Heroes:   make([]ItemHeroData, 0, 10),
 			}
+			lastProcessedTime = lineTime
 		}
 
 		switch line.Type {
@@ -134,8 +131,6 @@ func ParseItemsWorker(filePath string) ([]ItemsGameState, error) {
 			var bkbCd float32 = 0
 
 			if inv, ok := inventories[heroName]; ok {
-				// ВАЖНО: Мы создаем копию только здесь, чтобы Snapshot был статичным
-				// Но за счет использования decoder и rawLine общая скорость будет выше
 				if len(inv.items) > 0 {
 					itemsSnapshot = make([]string, len(inv.items))
 					copy(itemsSnapshot, inv.items)
@@ -161,10 +156,6 @@ func ParseItemsWorker(filePath string) ([]ItemsGameState, error) {
 
 	return results, nil
 }
-
-// -----------------------------------------------------------
-// 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-// -----------------------------------------------------------
 
 func normalizeHeroName(name string) string {
 	if name == "" || name == "dota_unknown" {
