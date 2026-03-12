@@ -162,6 +162,14 @@ func ParseVisionWorker(filePath string, myTeam int) ([]VisionEnemeyTeam, error) 
 		gs.Update(line)
 
 		currentTimeInt := int(line.Time)
+		if lastTimeInt != -9999 && currentTimeInt > lastTimeInt+1 {
+			for t := lastTimeInt + 1; t < currentTimeInt; t++ {
+				result = append(result, VisionEnemeyTeam{
+					Time: t,
+					Unit: []UnitVisionData{},
+				})
+			}
+		}
 		if currentTimeInt > lastTimeInt {
 			snapshot := gs.CalculateVisibility(currentTimeInt)
 			result = append(result, snapshot)
