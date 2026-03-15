@@ -52,7 +52,7 @@ CREATE TABLE train.dataset(
 
     movespeed INT,
 
-    -- abilities (пример для 4)
+    -- abilities 
     ability1_level INT,
     ability1_castrange INT,
     ability1_manacost INT,
@@ -81,9 +81,29 @@ CREATE TABLE train.dataset(
     nearest_ally_tower_distance FLOAT,
     nearest_enemy_tower_distance FLOAT,
 
-    nearest_enemy_last_seen_x FLOAT,
+    enemy_last_seen_x FLOAT,
     nearest_enemy_last_seen_y FLOAT,
     nearest_enemy_last_seen_time INT,
+
+    -- enemy_1_last_seen_x FLOAT,
+    -- enemy_1_last_seen_y FLOAT,
+    -- enemy_1_last_seen_time INT,
+
+    -- enemy_2_last_seen_x FLOAT,
+    -- enemy_2_last_seen_y FLOAT,
+    -- enemy_2_last_seen_time INT,
+
+    -- enemy_3_last_seen_x FLOAT,
+    -- enemy_3_last_seen_y FLOAT,
+    -- enemy_3_last_seen_time INT,
+
+    -- enemy_4_last_seen_x FLOAT,
+    -- enemy_4_last_seen_y FLOAT,
+    -- enemy_4_last_seen_time INT,
+
+    -- enemy_5_last_seen_x FLOAT,
+    -- enemy_5_last_seen_y FLOAT,
+    -- enemy_5_last_seen_time INT,
 
     -- active(?) safe items
     item_bkb BOOLEAN,
