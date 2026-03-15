@@ -10,3 +10,5 @@ class RedisClient:
 
     async def get(self, key: str) -> str:
         return await self.redis.get(key)
+    
+    
