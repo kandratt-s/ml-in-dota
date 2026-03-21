@@ -106,10 +106,10 @@ CREATE TABLE train.dataset(
     -- enemy_5_last_seen_time INT,
 
     -- active(?) safe items
-    item_bkb BOOLEAN,
+    item_black_king_bar BOOLEAN,
     item_blink BOOLEAN,
     item_force_staff BOOLEAN,
-    item_skull_basher BOOLEAN,
+    item_basher BOOLEAN,
     item_abyssal_blade BOOLEAN,
     item_nullifier BOOLEAN,
     item_lotus_orb BOOLEAN,
@@ -118,11 +118,11 @@ CREATE TABLE train.dataset(
     item_phase_boots BOOLEAN,
     item_silver_edge BOOLEAN,
     item_heart BOOLEAN,
-    item_linkens BOOLEAN,
+    item_sphere BOOLEAN,
     item_manta BOOLEAN,
     item_blade_mail BOOLEAN,
     item_aeon_disk BOOLEAN,
-    item_pipe BOOLEAN
+    item_pipe BOOLEAN,
 
     -- target variable
     dead_in_1 BOOLEAN,

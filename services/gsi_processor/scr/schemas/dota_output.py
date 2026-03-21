@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, AliasPath
-    
+
 
 class GameStateRequest(BaseModel):
     # game info
@@ -83,10 +83,10 @@ class GameStateRequest(BaseModel):
     nearest_enemy_last_seen_time: int
 
     # items
-    item_bkb: bool
+    item_black_king_bar: bool
     item_blink: bool
     item_force_staff: bool
-    item_skull_basher: bool
+    item_basher: bool
     item_abyssal_blade: bool
     item_nullifier: bool
     item_lotus_orb: bool
@@ -95,7 +95,7 @@ class GameStateRequest(BaseModel):
     item_phase_boots: bool
     item_silver_edge: bool
     item_heart: bool
-    item_linkens: bool
+    item_sphere: bool
     item_manta: bool
     item_blade_mail: bool
     item_aeon_disk: bool
