@@ -3,40 +3,40 @@ from pydantic import BaseModel, Field, AliasPath
 
 class GameStateRequest(BaseModel):
     # game info
-    account_id: int = Field(validation_alias=AliasPath("player", "accountid"))
-    match_id: int = Field(validation_alias=AliasPath("map", "matchid"))
-    game_time: int = Field(validation_alias=AliasPath("map", "game_time"))
+    account_id: int
+    match_id: int
+    game_time: int
 
-    is_day: bool = Field(validation_alias=AliasPath("map", "daytime"))
+    is_day: bool
     is_radiant: bool
 
-    radiant_score: int = Field(validation_alias=AliasPath("map", "radiant_score"))
-    dire_score: int = Field(validation_alias=AliasPath("map", "dire_score"))
+    radiant_score: int
+    dire_score: int
 
     # hero
-    hero_id: int = Field(validation_alias=AliasPath("hero", "id"))
-    level: int = Field(validation_alias=AliasPath("hero", "level"))
+    hero_id: int 
+    level: int 
 
-    kills: int = Field(validation_alias=AliasPath("player", "kills"))
-    deaths: int = Field(validation_alias=AliasPath("player", "deaths"))
-    assists: int = Field(validation_alias=AliasPath("player", "assists"))
-    last_hits: int = Field(validation_alias=AliasPath("player", "last_hits"))
-    denies: int = Field(validation_alias=AliasPath("player", "denies"))
+    kills: int 
+    deaths: int
+    assists: int
+    last_hits: int
+    denies: int 
 
-    gold: int = Field(validation_alias=AliasPath("player", "gold"))
+    gold: int 
     net_worth: int
 
-    x: float = Field(validation_alias=AliasPath("hero", "xpos"))
-    y: float = Field(validation_alias=AliasPath("hero", "ypos"))
+    x: float 
+    y: float 
     square: int
 
-    xp: int = Field(validation_alias=AliasPath("hero", "xp"))
+    xp: int 
 
-    health: int = Field(validation_alias=AliasPath("hero", "health"))
-    mana: int = Field(validation_alias=AliasPath("hero", "mana"))
+    health: int 
+    mana: int 
 
-    max_health: int = Field(validation_alias=AliasPath("hero", "max_health"))
-    max_mana: int = Field(validation_alias=AliasPath("hero", "max_mana"))
+    max_health: int 
+    max_mana: int 
 
     agility: int
     intellect: int
@@ -49,25 +49,25 @@ class GameStateRequest(BaseModel):
     movespeed: int
 
     # abilities
-    level0: int = Field(validation_alias=AliasPath("abilities", "ability0", "level"))
+    level0: int 
     castrange0: int 
-    manacost0: int = Field(validation_alias=AliasPath("abilities", "ability0", "manacost"))
-    cooldown0: int = Field(validation_alias=AliasPath("abilities", "ability0", "cooldown"))
+    manacost0: int 
+    cooldown0: int 
 
-    level1: int = Field(validation_alias=AliasPath("abilities", "ability1", "level"))
+    level1: int 
     castrange1: int 
-    manacost1: int = Field(validation_alias=AliasPath("abilities", "ability1", "manacost"))
-    cooldown1: int = Field(validation_alias=AliasPath("abilities", "ability1", "cooldown"))
+    manacost1: int 
+    cooldown1: int 
 
-    level2: int = Field(validation_alias=AliasPath("abilities", "ability2", "level"))
+    level2: int 
     castrange2: int 
-    manacost2: int = Field(validation_alias=AliasPath("abilities", "ability2", "manacost"))
-    cooldown2: int = Field(validation_alias=AliasPath("abilities", "ability2", "cooldown"))
+    manacost2: int
+    cooldown2: int
 
-    level3: int = Field(validation_alias=AliasPath("abilities", "ability3", "level"))
+    level3: int
     castrange3: int
-    manacost3: int = Field(validation_alias=AliasPath("abilities", "ability3", "manacost"))
-    cooldown3: int = Field(validation_alias=AliasPath("abilities", "ability3", "cooldown"))
+    manacost3: int
+    cooldown3: int
 
 
     # distances
