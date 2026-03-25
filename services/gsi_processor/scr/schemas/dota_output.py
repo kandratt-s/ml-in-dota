@@ -26,8 +26,8 @@ class GameStateRequest(BaseModel):
     gold: int 
     net_worth: int
 
-    x: float 
-    y: float 
+    x: int 
+    y: int 
     square: int
 
     xp: int 
@@ -43,7 +43,7 @@ class GameStateRequest(BaseModel):
     strength: int
 
     magical_resistance: int
-    armor: float
+    armor: int
 
     bkb_cooldown: int
     movespeed: int
@@ -71,16 +71,42 @@ class GameStateRequest(BaseModel):
 
 
     # distances
-    nearest_ally_distance: float
-    nearest_enemy_distance: float
+    # nearest_ally_distance: float
+    # nearest_enemy_distance: float
 
-    nearest_ally_tp_place_distance: float
-    nearest_ally_tower_distance: float
-    nearest_enemy_tower_distance: float
+    # nearest_ally_tp_place_distance: float
+    nearest_ally_tower_distance: int
+    nearest_enemy_tower_distance: int
 
-    enemy_last_seen_x: float
-    nearest_enemy_last_seen_y: float
-    nearest_enemy_last_seen_time: int
+    enemy_1_last_seen_x: int
+    enemy_1_last_seen_y: int
+    enemy_1_last_seen_square: int
+    enemy_1_last_seen_distance: int
+    enemy_1_last_seen_time: int
+
+    enemy_2_last_seen_x: int
+    enemy_2_last_seen_y: int
+    enemy_2_last_seen_square: int
+    enemy_2_last_seen_distance: int
+    enemy_2_last_seen_time: int
+
+    enemy_3_last_seen_x: int
+    enemy_3_last_seen_y: int
+    enemy_3_last_seen_square: int
+    enemy_3_last_seen_distance: int
+    enemy_3_last_seen_time: int
+
+    enemy_4_last_seen_x: int
+    enemy_4_last_seen_y: int
+    enemy_4_last_seen_square: int
+    enemy_4_last_seen_distance: int
+    enemy_4_last_seen_time: int
+
+    enemy_5_last_seen_x: int
+    enemy_5_last_seen_y: int
+    enemy_5_last_seen_square: int
+    enemy_5_last_seen_distance: int
+    enemy_5_last_seen_time: int
 
     # items
     item_black_king_bar: bool
@@ -100,3 +126,39 @@ class GameStateRequest(BaseModel):
     item_blade_mail: bool
     item_aeon_disk: bool
     item_pipe: bool
+
+
+class AbilitySnapshot(BaseModel):
+    level: int = 0
+    cast_range: int = 0
+    mana_cost: int = 0
+    cooldown: int = 0
+
+
+class EnemySnapshot(BaseModel):
+    name: str = ""
+    x: int = 0
+    y: int = 0
+    square: int = 0
+    distance: int = 0
+    time: int = 0
+
+
+class HeroStatsSnapshot(BaseModel):
+    strength: int = 0
+    agility: int = 0
+    intellect: int = 0
+
+
+class CalculatedFeatures(BaseModel):
+    hero: HeroStatsSnapshot
+    magical_resistance: int = 0
+    armor: int = 0
+    movespeed: int = 0
+    bkb_cooldown: int = 0
+    net_worth: int = 0
+    nearest_ally_tower_distance: int = 100000
+    nearest_enemy_tower_distance: int = 100000
+    abilities: list[AbilitySnapshot] = Field(default_factory=list)
+    enemies: list[EnemySnapshot] = Field(default_factory=list)
+    save_items: list[bool] = Field(default_factory=list)

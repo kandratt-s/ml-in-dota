@@ -1,4 +1,4 @@
-from fastapi import Path
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import SecretStr
 
@@ -21,11 +21,11 @@ class Settings(BaseSettings):
     YMAX: int
     CELLS: int
 
-    BASE_DIR = Path(__file__).resolve().parents[2]
-    LOCAL_DATA = BASE_DIR / "local_data"
-    ITEMS_JSON = LOCAL_DATA / "items.json"
-    HERO_STATS_JSON = LOCAL_DATA / "heroStats.json"
-    ABILITIES_JSON = LOCAL_DATA / "abilities.json"
+    BASE_DIR: Path = Path(__file__).resolve().parents[2]
+    LOCAL_DATA: Path = BASE_DIR / "local_data"
+    ITEMS_JSON: Path = LOCAL_DATA / "items.json"
+    HERO_STATS_JSON: Path = LOCAL_DATA / "heroStats.json"
+    ABILITIES_JSON: Path = LOCAL_DATA / "abilities.json"
 
     model_config = SettingsConfigDict(
         env_file=".env",
