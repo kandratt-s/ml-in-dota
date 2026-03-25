@@ -8,6 +8,24 @@ import (
 	"strings"
 )
 
+var heroToIsRadiant = make(map[string]bool)
+
+var ConsumableItems = map[string]bool{
+	"tango":           true,
+	"clarity":         true,
+	"enchanted_mango": true,
+	"faerie_fire":     true,
+	"flask":           true,
+	"ward_observer":   true,
+	"ward_sentry":     true,
+	"smoke_of_deceit": true,
+	"dust":            true,
+	"tpscroll":        true,
+	"cheese":          true,
+	"refresher_shard": true,
+	"aegis":           true,
+}
+
 type HeroStatsDefinition struct {
 	ID              int     `json:"id"`
 	Name            string  `json:"name"`
@@ -67,6 +85,25 @@ type HeroGeneralData struct {
 	MagicResist int     `json:"magical_resistance"`
 	Armor       float32 `json:"armor"`
 	MoveSpeed   int     `json:"movespeed"`
+
+	// Items flags
+	ItemBlackKingBar bool `json:"item_black_king_bar"`
+	ItemBlink        bool `json:"item_blink"`
+	ItemForceStaff   bool `json:"item_force_staff"`
+	ItemBasher       bool `json:"item_basher"`
+	ItemAbyssalBlade bool `json:"item_abyssal_blade"`
+	ItemNullifier    bool `json:"item_nullifier"`
+	ItemLotusOrb     bool `json:"item_lotus_orb"`
+	ItemTravelBoots  bool `json:"item_travel_boots"`
+	ItemTpscroll     bool `json:"item_tpscroll"`
+	ItemPhaseBoots   bool `json:"item_phase_boots"`
+	ItemSilverEdge   bool `json:"item_silver_edge"`
+	ItemHeart        bool `json:"item_heart"`
+	ItemSphere       bool `json:"item_sphere"`
+	ItemManta        bool `json:"item_manta"`
+	ItemBladeMail    bool `json:"item_blade_mail"`
+	ItemAeonDisk     bool `json:"item_aeon_disk"`
+	ItemPipe         bool `json:"item_pipe"`
 
 	IsDead20s bool
 	IsDead15s bool
@@ -176,6 +213,7 @@ func calculateHeroStats(heroName string, level int, inventory []string) calculat
 	intel := float32(base.BaseInt) + (base.IntGain * lvlIndex)
 	var bonusStr, bonusAgi, bonusInt float32
 	var bonusHealth, bonusMana, bonusArmor, bonusMS float32
+	var bonusMagicResist int
 
 	for _, itemName := range inventory {
 		item, exists := ItemStatsMap[itemName]
@@ -205,16 +243,19 @@ func calculateHeroStats(heroName string, level int, inventory []string) calculat
 				bonusArmor += val32
 			case "movement_speed", "bonus_movement_speed":
 				bonusMS += val32
+			case "magical_resistance", "bonus_magical_resistance":
+				bonusMagicResist += int(val)
 			}
 		}
 	}
 	totalStr := int(math.Floor(float64(str + bonusStr)))
 	totalAgi := int(math.Floor(float64(agi + bonusAgi)))
 	totalInt := int(math.Floor(float64(intel + bonusInt)))
+
 	maxHealth := base.BaseHealth + (float32(totalStr) * 22.0) + bonusHealth
 	maxMana := base.BaseMana + (float32(totalInt) * 12.0) + bonusMana
 	armor := base.BaseArmor + (float32(totalAgi) * 0.167) + bonusArmor
-	magicResist := base.BaseMr + int(float32(totalInt)*0.1)
+	magicResist := base.BaseMr + int(float32(totalInt)*0.1) + bonusMagicResist
 
 	moveSpeed := base.MoveSpeed + int(bonusMS)
 	return calculatedStats{
@@ -223,6 +264,47 @@ func calculateHeroStats(heroName string, level int, inventory []string) calculat
 		Mana: maxMana, MaxMana: maxMana,
 		Armor: armor, MagicResist: magicResist,
 		MoveSpeed: moveSpeed,
+	}
+}
+
+func setItemFlags(hero *HeroGeneralData, inventory []string) {
+	for _, item := range inventory {
+		switch item {
+		case "black_king_bar":
+			hero.ItemBlackKingBar = true
+		case "blink", "overwhelming_blink", "swift_blink", "arcane_blink":
+			hero.ItemBlink = true
+		case "force_staff", "hurricane_pike":
+			hero.ItemForceStaff = true
+		case "basher":
+			hero.ItemBasher = true
+		case "abyssal_blade":
+			hero.ItemAbyssalBlade = true
+		case "nullifier":
+			hero.ItemNullifier = true
+		case "lotus_orb":
+			hero.ItemLotusOrb = true
+		case "travel_boots", "travel_boots_2":
+			hero.ItemTravelBoots = true
+		case "tpscroll":
+			hero.ItemTpscroll = true
+		case "phase_boots":
+			hero.ItemPhaseBoots = true
+		case "silver_edge":
+			hero.ItemSilverEdge = true
+		case "heart":
+			hero.ItemHeart = true
+		case "sphere":
+			hero.ItemSphere = true
+		case "manta":
+			hero.ItemManta = true
+		case "blade_mail":
+			hero.ItemBladeMail = true
+		case "aeon_disk":
+			hero.ItemAeonDisk = true
+		case "pipe":
+			hero.ItemPipe = true
+		}
 	}
 }
 
@@ -294,17 +376,27 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 
 		case "DOTA_COMBATLOG_DEATH":
 			if line.TargetHero {
-				if strings.Contains(line.AttackerName, "goodguys") {
-					radiantScore++
+				attacker := NormalizeHeroName(line.AttackerName)
+				isRadiantKiller, exists := heroToIsRadiant[attacker]
+
+				if exists {
+					if isRadiantKiller {
+						radiantScore++
+					} else {
+						direScore++
+					}
 				} else {
-					direScore++
+					if strings.Contains(line.TargetName, "goodguys") {
+						direScore++
+					} else if strings.Contains(line.TargetName, "badguys") {
+						radiantScore++
+					}
 				}
+
 				if currentFrame != nil {
 					currentFrame.RadiantScore = radiantScore
 					currentFrame.DireScore = direScore
 				}
-			}
-			if line.TargetHero == true {
 				appendDeathPredict(results, line.TargetName, lineTime)
 			}
 
@@ -319,15 +411,15 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 		case "DOTA_COMBATLOG_ITEM", "DOTA_COMBATLOG_ITEM_USED":
 			if line.AttackerName != "" && line.Inflictor != "" {
 				heroName := NormalizeHeroName(line.AttackerName)
-
 				itemToRemove := strings.TrimPrefix(line.Inflictor, "item_")
 
-				inventory := heroInventory[heroName]
-
-				for i, item := range inventory {
-					if item == itemToRemove {
-						heroInventory[heroName] = append(inventory[:i], inventory[i+1:]...)
-						break
+				if ConsumableItems[itemToRemove] {
+					inventory := heroInventory[heroName]
+					for i, item := range inventory {
+						if item == itemToRemove {
+							heroInventory[heroName] = append(inventory[:i], inventory[i+1:]...)
+							break
+						}
 					}
 				}
 			}
@@ -346,7 +438,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 			}
 			stats := calculateHeroStats(heroName, line.Level, heroInventory[heroName])
 
-			currentFrame.Heroes = append(currentFrame.Heroes, HeroGeneralData{
+			heroData := HeroGeneralData{
 				HeroName:    heroName,
 				HeroID:      line.HeroID,
 				IsRadiant:   line.Slot < 5,
@@ -370,8 +462,16 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				MagicResist: stats.MagicResist,
 				Armor:       stats.Armor,
 				MoveSpeed:   stats.MoveSpeed,
-			})
+			}
+
+			setItemFlags(&heroData, heroInventory[heroName])
+
+			currentFrame.Heroes = append(currentFrame.Heroes, heroData)
+
+			heroName = NormalizeHeroName(heroName)
+			heroToIsRadiant[heroName] = line.Slot < 5
 		}
+
 	}
 
 	if currentFrame != nil {
