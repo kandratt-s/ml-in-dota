@@ -1,45 +1,51 @@
-/*
-account_id
-match_id
-game_time
-day (true/false)
-radiant/dire
-radiant_score
-dire_score
-hero_id
-level
-kills
-deaths
-assists
-last_hits
-denies
-gold
-x
-y
-xp
-health
-mana
-max_health
-max_mana
-agility
-intellect
-strength
-magical_resistance (int)
-armor
-movespeed
-*/
-
 package utils
 
 import (
 	"encoding/json"
+	"math"
 	"os"
+	"strconv"
 	"strings"
 )
 
+type HeroStatsDefinition struct {
+	ID              int     `json:"id"`
+	Name            string  `json:"name"`
+	PrimaryAttr     string  `json:"primary_attr"`
+	BaseHealth      float32 `json:"base_health"`
+	BaseMana        float32 `json:"base_mana"`
+	BaseArmor       float32 `json:"base_armor"`
+	BaseMr          int     `json:"base_mr"`
+	BaseStr         int     `json:"base_str"`
+	BaseAgi         int     `json:"base_agi"`
+	BaseInt         int     `json:"base_int"`
+	StrGain         float32 `json:"str_gain"`
+	AgiGain         float32 `json:"agi_gain"`
+	IntGain         float32 `json:"int_gain"`
+	MoveSpeed       int     `json:"move_speed"`
+	BaseHealthRegen float32 `json:"base_health_regen"`
+	BaseManaRegen   float32 `json:"base_mana_regen"`
+}
+
+type ItemAttribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type ItemDefinition struct {
+	ID     int             `json:"id"`
+	Dname  string          `json:"dname"`
+	Attrib []ItemAttribute `json:"attrib"`
+}
+
+var (
+	HeroStatsMap map[string]HeroStatsDefinition
+	ItemStatsMap map[string]ItemDefinition
+)
+
 type HeroGeneralData struct {
-	HeroID      int `json:"hero_id"`
-	HeroName    string
+	HeroID      int     `json:"hero_id"`
+	HeroName    string  `json:"hero_name"`
 	IsRadiant   bool    `json:"is_radiant"`
 	Level       int     `json:"level"`
 	Kills       int     `json:"kills"`
@@ -75,7 +81,8 @@ type rawLine struct {
 	MatchID      int64   `json:"match_id"`
 	HeroID       int     `json:"hero_id"`
 	TargetHero   bool    `json:"targethero"`
-	TargetName   string  `josn:"targetname"`
+	TargetName   string  `json:"targetname"`
+	Inflictor    string  `json:"inflictor"`
 	AttackerName string  `json:"attackername"`
 	Slot         int     `json:"slot"`
 	Unit         string  `json:"unit"`
@@ -89,6 +96,7 @@ type rawLine struct {
 	XP           int     `json:"xp"`
 	X            float32 `json:"x"`
 	Y            float32 `json:"y"`
+	ValueName    string  `json:"valuename"`
 	Health       float32 `json:"health"`
 	MaxHealth    float32 `json:"max_health"`
 	Mana         float32 `json:"mana"`
@@ -110,7 +118,120 @@ type GeneralGameState struct {
 	Heroes       []HeroGeneralData `json:"heroes"`
 }
 
+func LoadGameData(heroStatsPath, itemsPath string) error {
+	hContent, err := os.ReadFile(heroStatsPath)
+	if err != nil {
+		return err
+	}
+	var heroes []HeroStatsDefinition
+	if err := json.Unmarshal(hContent, &heroes); err != nil {
+		return err
+	}
+	HeroStatsMap = make(map[string]HeroStatsDefinition)
+	for _, h := range heroes {
+		HeroStatsMap[h.Name] = h
+	}
+
+	iContent, err := os.ReadFile(itemsPath)
+	if err != nil {
+		return err
+	}
+	ItemStatsMap = make(map[string]ItemDefinition)
+	if err := json.Unmarshal(iContent, &ItemStatsMap); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func NormalizeHeroName(name string) string {
+	s := strings.ToLower(name)
+	if strings.Contains(s, "cdota_unit_hero_") {
+		return strings.Replace(s, "cdota_unit_hero_", "npc_dota_hero_", 1)
+	}
+	return s
+}
+
+type calculatedStats struct {
+	Str, Agi, Int     int
+	Health, MaxHealth float32
+	Mana, MaxMana     float32
+	Armor             float32
+	MagicResist       int
+	MoveSpeed         int
+}
+
+func calculateHeroStats(heroName string, level int, inventory []string) calculatedStats {
+	base, ok := HeroStatsMap[heroName]
+	if !ok {
+		return calculatedStats{}
+	}
+	lvlIndex := float32(level - 1)
+	if lvlIndex < 0 {
+		lvlIndex = 0
+	}
+
+	str := float32(base.BaseStr) + (base.StrGain * lvlIndex)
+	agi := float32(base.BaseAgi) + (base.AgiGain * lvlIndex)
+	intel := float32(base.BaseInt) + (base.IntGain * lvlIndex)
+	var bonusStr, bonusAgi, bonusInt float32
+	var bonusHealth, bonusMana, bonusArmor, bonusMS float32
+
+	for _, itemName := range inventory {
+		item, exists := ItemStatsMap[itemName]
+		if !exists {
+			continue
+		}
+		for _, attr := range item.Attrib {
+			val, err := strconv.ParseFloat(attr.Value, 32)
+			if err != nil {
+				continue
+			}
+
+			val32 := float32(val)
+
+			switch attr.Key {
+			case "bonus_strength":
+				bonusStr += val32
+			case "bonus_agility":
+				bonusAgi += val32
+			case "bonus_intellect":
+				bonusInt += val32
+			case "bonus_health":
+				bonusHealth += val32
+			case "bonus_mana":
+				bonusMana += val32
+			case "bonus_armor":
+				bonusArmor += val32
+			case "movement_speed", "bonus_movement_speed":
+				bonusMS += val32
+			}
+		}
+	}
+	totalStr := int(math.Floor(float64(str + bonusStr)))
+	totalAgi := int(math.Floor(float64(agi + bonusAgi)))
+	totalInt := int(math.Floor(float64(intel + bonusInt)))
+	maxHealth := base.BaseHealth + (float32(totalStr) * 22.0) + bonusHealth
+	maxMana := base.BaseMana + (float32(totalInt) * 12.0) + bonusMana
+	armor := base.BaseArmor + (float32(totalAgi) * 0.167) + bonusArmor
+	magicResist := base.BaseMr + int(float32(totalInt)*0.1)
+
+	moveSpeed := base.MoveSpeed + int(bonusMS)
+	return calculatedStats{
+		Str: totalStr, Agi: totalAgi, Int: totalInt,
+		Health: maxHealth, MaxHealth: maxHealth,
+		Mana: maxMana, MaxMana: maxMana,
+		Armor: armor, MagicResist: magicResist,
+		MoveSpeed: moveSpeed,
+	}
+}
+
 func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
+
+	if len(HeroStatsMap) == 0 {
+		LoadGameData("dotadata/heroStats.json", "dotadata/items.json")
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -122,6 +243,8 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 
 	var currentMatchID int64
 	slotToHero := make(map[int]string, 10)
+	heroInventory := make(map[string][]string)
+
 	var radiantScore, direScore int
 	lastProcessedTime := -99999
 
@@ -185,10 +308,34 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				appendDeathPredict(results, line.TargetName, lineTime)
 			}
 
+		case "DOTA_COMBATLOG_PURCHASE":
+			if line.TargetName != "" && line.ValueName != "" {
+				target := NormalizeHeroName(line.TargetName)
+				itemName := strings.TrimPrefix(line.ValueName, "item_")
+
+				heroInventory[target] = append(heroInventory[target], itemName)
+			}
+
+		case "DOTA_COMBATLOG_ITEM", "DOTA_COMBATLOG_ITEM_USED":
+			if line.AttackerName != "" && line.Inflictor != "" {
+				heroName := NormalizeHeroName(line.AttackerName)
+
+				itemToRemove := strings.TrimPrefix(line.Inflictor, "item_")
+
+				inventory := heroInventory[heroName]
+
+				for i, item := range inventory {
+					if item == itemToRemove {
+						heroInventory[heroName] = append(inventory[:i], inventory[i+1:]...)
+						break
+					}
+				}
+			}
+
 		case "interval":
 			var heroName string
 			if line.Unit != "" && strings.Contains(line.Unit, "Hero") {
-				heroName = normalizeHeroName(line.Unit)
+				heroName = NormalizeHeroName(line.Unit)
 				slotToHero[line.Slot] = heroName
 			} else {
 				heroName = slotToHero[line.Slot]
@@ -197,6 +344,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 			if heroName == "" || currentFrame == nil {
 				continue
 			}
+			stats := calculateHeroStats(heroName, line.Level, heroInventory[heroName])
 
 			currentFrame.Heroes = append(currentFrame.Heroes, HeroGeneralData{
 				HeroName:    heroName,
@@ -212,16 +360,16 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				XP:          line.XP,
 				X:           line.X,
 				Y:           line.Y,
-				Health:      line.Health,
-				MaxHealth:   line.MaxHealth,
-				Mana:        line.Mana,
-				MaxMana:     line.MaxMana,
-				Agility:     line.Agility,
-				Intellect:   line.Intellect,
-				Strength:    line.Strength,
-				MagicResist: line.MagResist,
-				Armor:       line.Armor,
-				MoveSpeed:   line.Movespeed,
+				Health:      stats.Health,
+				MaxHealth:   stats.MaxHealth,
+				Mana:        stats.Mana,
+				MaxMana:     stats.MaxMana,
+				Agility:     stats.Agi,
+				Intellect:   stats.Int,
+				Strength:    stats.Str,
+				MagicResist: stats.MagicResist,
+				Armor:       stats.Armor,
+				MoveSpeed:   stats.MoveSpeed,
 			})
 		}
 	}
@@ -241,17 +389,13 @@ func isDaylight(gameTime float64) bool {
 }
 
 func appendDeathPredict(results []GeneralGameState, heroName string, deathTime int) {
-
 	if len(results) == 0 {
 		return
 	}
-
 	firstTime := results[0].GameTime
 	deathIndex := deathTime - firstTime
-
 	for i := 1; i <= 20; i++ {
 		idx := deathIndex - i
-
 		if idx < 0 || idx >= len(results) {
 			continue
 		}
