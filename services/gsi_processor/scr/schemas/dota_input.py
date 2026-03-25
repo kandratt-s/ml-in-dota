@@ -39,17 +39,19 @@ class Ability(BaseModel):
 
 class Item(BaseModel):
     name: str
+    cooldown: int = 0
 
 
-class Building(BaseModel):
-    health: int
-    max_health: int
+# class Building(BaseModel):
+#     health: int
+#     max_health: int
 
 
 class MinimapObject(BaseModel):
     xpos: int
     ypos: int
-    name: str
+    unitname: str | None = None
+    team: int | None = None
 
 
 class AuthToken(BaseModel):
@@ -62,6 +64,6 @@ class GSIRequest(BaseModel):
     hero: Hero
     abilities: dict[str, Ability]
     items: dict[str, Item]
-    buildings: dict[str, dict[str, Building]]
+    # buildings: dict[str, dict[str, Building]]
     minimap: dict[str, MinimapObject]
     auth: AuthToken

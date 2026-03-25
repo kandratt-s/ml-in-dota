@@ -182,5 +182,7 @@ research/dota_info/odota_parsed/*
 !research/dota_info/gsi/.gitkeep
 !research/dota_info/odota_parsed/.gitkeep
 
+tests
+
 #vscode
 .vscode/
