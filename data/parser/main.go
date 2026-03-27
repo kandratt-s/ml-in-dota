@@ -12,7 +12,9 @@ import (
 
 func workerParse(id int, jobs <-chan string, dbChan chan<- postgres.FullMatch, wq *sync.WaitGroup) {
 	for filePath := range jobs {
-		fmt.Printf("Воркер #%d взял матч: %s\n", id, filePath)
+
+		fmt.Println("воркер ", id, "взял задачу")
+
 		fm, err := makeOneMatch(filePath)
 
 		if err != nil {
@@ -28,8 +30,8 @@ func workerParse(id int, jobs <-chan string, dbChan chan<- postgres.FullMatch, w
 func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 	var wgParse sync.WaitGroup
 
-	visionChan := make(chan []utils.VisionEnemeyTeam, 1)
-	itemsChan := make(chan []utils.ItemsGameState, 1)
+	visionChanDire := make(chan []utils.VisionEnemeyTeam, 1)
+	visionChanRadiant := make(chan []utils.VisionEnemeyTeam, 1)
 	generalChan := make(chan []utils.GeneralGameState, 1)
 	errChan := make(chan error, 3)
 
@@ -37,22 +39,12 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 
 	go func() {
 		defer wgParse.Done()
-		data, err := utils.ParseVisionWorker(filePath, 2)
+		data, err := utils.ParseVisionWorker(filePath, 3) // 2-radiant
 		if err != nil {
 			errChan <- err
 			return
 		}
-		visionChan <- data
-	}()
-
-	go func() {
-		defer wgParse.Done()
-		data, err := utils.ParseItemsWorker(filePath)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		itemsChan <- data
+		visionChanDire <- data
 	}()
 
 	go func() {
@@ -66,9 +58,19 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 	}()
 
 	go func() {
+		defer wgParse.Done()
+		data, err := utils.ParseVisionWorker(filePath, 2) // 3 - dire
+		if err != nil {
+			errChan <- err
+			return
+		}
+		visionChanRadiant <- data
+	}()
+
+	go func() {
 		wgParse.Wait()
-		close(visionChan)
-		close(itemsChan)
+		close(visionChanRadiant)
+		close(visionChanDire)
 		close(generalChan)
 		close(errChan)
 	}()
@@ -80,15 +82,20 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 		}
 	}
 
-	visionData := <-visionChan
-	itemData := <-itemsChan
+	visionDataRadiant := <-visionChanRadiant
+	visionDataDire := <-visionChanDire
 	generalData := <-generalChan
 
+	// utils.BeautifulPrint(generalData[3072])
+	// utils.TestBKBcooldown(generalData)
+	// fmt.Println(len(generalData))
+	// utils.TestCompatibility(generalData, visionDataDire)
+
 	return postgres.FullMatch{
-		MatchId: generalData[0].MatchID,
-		General: generalData,
-		Items:   itemData,
-		Vision:  visionData,
+		MatchId:       generalData[0].MatchID,
+		General:       generalData,
+		VisionRadiant: visionDataRadiant,
+		VisionDire:    visionDataDire,
 	}, nil
 
 }
@@ -106,6 +113,16 @@ func main() {
 
 	go postgres.SaveWorker(db, dbChan, dbDone)
 
+	err := utils.LoadGameData(
+		"dotadata/heroStats.json",
+		"dotadata/items.json",
+		"dotadata/abilities.json",
+		"dotadata/hero_abilities.json",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	numWorkers := runtime.NumCPU()
 	jobs := make(chan string, 1000)
 	var wq sync.WaitGroup
@@ -114,8 +131,8 @@ func main() {
 		go workerParse(w, jobs, dbChan, &wq)
 	}
 
-	for i := 0; i < 1000; i++ {
-		filePath := "input_json/8654087914_parsed.jsonl"
+	for i := 0; i < 1; i++ {
+		filePath := "input_json/match_petra.jsonl" // такой путь для тестов создац
 		wq.Add(1)
 		jobs <- filePath
 	}

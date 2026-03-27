@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"math"
 	"os"
 	"sort"
 	"strings"
@@ -126,7 +125,7 @@ type UnitState struct {
 	Team             int
 	X, Y, Z          float32
 	IsAlive          bool
-	Modifiers        map[string]bool
+	Modifiers        map[string]bool // на всякий случай
 	CurrentlyVisible bool
 
 	LastSeenX    float32
@@ -151,67 +150,6 @@ type GameState struct {
 	MyTeam      int
 	Towers      []*UnitState
 	TreeGrid    map[int][]Tree
-}
-
-func getGridID(x, y float32) int {
-	offset := -GridXMin
-
-	totalWidth := GridXMax - GridXMin
-	cellSize := totalWidth / float32(GridCells)
-
-	col := int((x + offset) / cellSize)
-	row := int((y + (-GridYMin)) / ((GridYMax - GridYMin) / float32(GridCells)))
-
-	if col < 0 {
-		col = 0
-	}
-	if col >= GridCells {
-		col = GridCells - 1
-	}
-	if row < 0 {
-		row = 0
-	}
-	if row >= GridCells {
-		row = GridCells - 1
-	}
-
-	return row*GridCells + col
-}
-
-func getTreeGridIdx(x, y float32) int {
-	MapMin := float32(-8000.0)
-	GridSize := float32(512.0)
-	cols := int((8000.0-(-8000.0))/GridSize) + 1
-	gx := int((x - MapMin) / GridSize)
-	gy := int((y - MapMin) / GridSize)
-	return gx*cols + gy
-}
-
-func ToWorld(val float32) float32 { return (val - CoordOffset) * CoordScale }
-
-func GetDistSq(x1, y1, x2, y2 float32) float32 {
-	return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
-}
-
-func GetDist(x1, y1, x2, y2 float32) float32 {
-	return float32(math.Sqrt(float64(GetDistSq(x1, y1, x2, y2))))
-}
-
-func NormalizeName(name string) string {
-	return strings.ToLower(strings.Replace(name, "CDOTA_Unit_Hero_", "npc_dota_hero_", 1))
-}
-
-func minF(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-func maxF(a, b float32) float32 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func ParseVisionWorker(filePath string, myTeam int) ([]VisionEnemeyTeam, error) {
@@ -316,7 +254,7 @@ func (gs *GameState) Update(line InputLogLine) {
 			}
 		}
 
-	case "DOTA_COMBATLOG_MODIFIER_ADD":
+	case "DOTA_COMBATLOG_MODIFIER_ADD": // на всякий случай
 		if hero, ok := gs.Heroes[line.TargetName]; ok {
 			hero.Modifiers[line.Inflictor] = true
 		}
@@ -413,7 +351,7 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 				lsTime = 99999
 			}
 
-			sq := getGridID(enemy.LastSeenX, enemy.LastSeenY)
+			sq := GetGridID(enemy.LastSeenX, enemy.LastSeenY)
 
 			switch idx {
 			case 0:
