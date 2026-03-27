@@ -32,7 +32,6 @@ func TestBKBcooldown(a []GeneralGameState) {
 }
 
 func TestCompatibility(general []GeneralGameState, vision []VisionEnemeyTeam) {
-	// 1. Проверка на одинаковую длину массивов
 	if len(general) != len(vision) {
 		fmt.Printf("Ошибка: Массивы разной длины! General: %d, Vision: %d\n", len(general), len(vision))
 	}
@@ -43,13 +42,11 @@ func TestCompatibility(general []GeneralGameState, vision []VisionEnemeyTeam) {
 	}
 
 	for i := 0; i < minLen; i++ {
-		// 2. Проверка на совместимость времени (один индекс = одно время)
 		if general[i].GameTime != vision[i].Time {
 			fmt.Printf("Рассинхрон на индексе %d: GeneralTime=%d, VisionTime=%d\n",
 				i, general[i].GameTime, vision[i].Time)
 		}
 
-		// 3. Проверка на "дырки" (последовательность времени)
 		if i > 0 {
 			expectedTime := general[i-1].GameTime + 1
 			if general[i].GameTime != expectedTime {
