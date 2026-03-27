@@ -13,7 +13,6 @@ var (
 	ItemStatsMap     map[string]ItemDefinition
 	AbilityStatsMap  map[string]AbilityDefinition
 	HeroAbilitiesMap map[string]HeroAbilitiesDefinition
-	heroToIsRadiant  = make(map[string]bool)
 )
 
 var ConsumableItems = map[string]bool{
@@ -21,6 +20,8 @@ var ConsumableItems = map[string]bool{
 	"flask": true, "ward_observer": true, "ward_sentry": true, "smoke_of_deceit": true,
 	"dust": true, "tpscroll": true, "cheese": true, "refresher_shard": true, "aegis": true,
 }
+
+const BKBTotalCooldown = 90.0
 
 type HeroStatsDefinition struct {
 	ID          int     `json:"id"`
@@ -77,6 +78,7 @@ type HeroGeneralData struct {
 	X           float32 `json:"x"`
 	Y           float32 `json:"y"`
 	XP          int     `json:"xp"`
+	Networth    int     `json:"networth"`
 	Health      float32 `json:"health"`
 	MaxHealth   float32 `json:"max_health"`
 	Mana        float32 `json:"mana"`
@@ -87,6 +89,7 @@ type HeroGeneralData struct {
 	MagicResist int     `json:"magical_resistance"`
 	Armor       float32 `json:"armor"`
 	MoveSpeed   int     `json:"movespeed"`
+	BKBcooldown int     `json:"bkb_cooldown"`
 
 	ItemBlackKingBar bool `json:"item_black_king_bar"`
 	ItemBlink        bool `json:"item_blink"`
@@ -157,6 +160,7 @@ type rawLine struct {
 	Y            float32 `json:"y"`
 	ValueName    string  `json:"valuename"`
 	AbilityLevel int     `json:"abilitylevel"`
+	Networth     int     `json:"networth"`
 }
 
 type GeneralGameState struct {
@@ -166,58 +170,6 @@ type GeneralGameState struct {
 	RadiantScore int               `json:"radiant_score"`
 	DireScore    int               `json:"dire_score"`
 	Heroes       []HeroGeneralData `json:"heroes"`
-}
-
-func LoadGameData(heroStatsPath, itemsPath, abilitiesPath, heroAbilitiesPath string) error {
-	hContent, err := os.ReadFile(heroStatsPath)
-	if err != nil {
-		return err
-	}
-	var heroes []HeroStatsDefinition
-	if err := json.Unmarshal(hContent, &heroes); err != nil {
-		return err
-	}
-	HeroStatsMap = make(map[string]HeroStatsDefinition)
-	for _, h := range heroes {
-		HeroStatsMap[h.Name] = h
-	}
-
-	iContent, err := os.ReadFile(itemsPath)
-	if err != nil {
-		return err
-	}
-	ItemStatsMap = make(map[string]ItemDefinition)
-	if err := json.Unmarshal(iContent, &ItemStatsMap); err != nil {
-		return err
-	}
-
-	aContent, err := os.ReadFile(abilitiesPath)
-	if err != nil {
-		return err
-	}
-	AbilityStatsMap = make(map[string]AbilityDefinition)
-	if err := json.Unmarshal(aContent, &AbilityStatsMap); err != nil {
-		return err
-	}
-
-	haContent, err := os.ReadFile(heroAbilitiesPath)
-	if err != nil {
-		return err
-	}
-	HeroAbilitiesMap = make(map[string]HeroAbilitiesDefinition)
-	if err := json.Unmarshal(haContent, &HeroAbilitiesMap); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func NormalizeHeroName(name string) string {
-	s := strings.ToLower(name)
-	if strings.Contains(s, "cdota_unit_hero_") {
-		return strings.Replace(s, "cdota_unit_hero_", "npc_dota_hero_", 1)
-	}
-	return s
 }
 
 func parseAbilityValue(raw interface{}, level int) int {
@@ -447,23 +399,15 @@ func setItemFlags(hero *HeroGeneralData, inventory []string) {
 }
 
 func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
-
-	if len(HeroStatsMap) == 0 {
-		LoadGameData(
-			"dotadata/heroStats.json",
-			"dotadata/items.json",
-			"dotadata/abilities.json",
-			"dotadata/hero_abilities.json",
-		)
-	}
-
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	results := make([]GeneralGameState, 0, 3500)
+	heroToIsRadiant := make(map[string]bool)
+
+	results := make([]GeneralGameState, 0, 4000)
 	var currentFrame *GeneralGameState
 	var currentMatchID int64
 	slotToHero := make(map[int]string, 10)
@@ -481,22 +425,33 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 		}
 
 		lineTime := int(line.Time)
-		if lastProcessedTime != -99999 && lineTime > lastProcessedTime+1 {
-			for t := lastProcessedTime + 1; t < lineTime; t++ {
-				results = append(results, GeneralGameState{
-					MatchID:      currentMatchID,
-					GameTime:     t,
-					IsDaytime:    isDaylight(float64(t)),
-					RadiantScore: radiantScore,
-					DireScore:    direScore,
-					Heroes:       []HeroGeneralData{},
-				})
-			}
+
+		if lastProcessedTime == -99999 {
+			lastProcessedTime = lineTime
+		}
+
+		if lineTime < 0 && lastProcessedTime > 0 {
+			continue
 		}
 
 		if line.Type != "" && (currentFrame == nil || currentFrame.GameTime != lineTime) {
+
 			if currentFrame != nil {
 				results = append(results, *currentFrame)
+				lastProcessedTime = currentFrame.GameTime
+			}
+
+			if lineTime > lastProcessedTime+1 {
+				for t := lastProcessedTime + 1; t < lineTime; t++ {
+					results = append(results, GeneralGameState{
+						MatchID:      currentMatchID,
+						GameTime:     t,
+						IsDaytime:    isDaylight(float64(t)),
+						RadiantScore: radiantScore,
+						DireScore:    direScore,
+						Heroes:       []HeroGeneralData{},
+					})
+				}
 			}
 			currentFrame = &GeneralGameState{
 				MatchID:      currentMatchID,
@@ -574,6 +529,16 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				heroAbilityLevels[heroName][line.ValueName] = line.AbilityLevel
 			}
 
+		case "DOTA_COMBATLOG_MODIFIER_ADD":
+			if line.Inflictor == "modifier_black_king_bar_immune" {
+				heroName := NormalizeHeroName(line.AttackerName)
+				for i, hero := range currentFrame.Heroes {
+					if hero.HeroName == heroName {
+						currentFrame.Heroes[i].BKBcooldown = BKBTotalCooldown
+					}
+				}
+			}
+
 		case "interval":
 			var heroName string
 			if line.Unit != "" && strings.Contains(line.Unit, "Hero") {
@@ -612,6 +577,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				MagicResist: stats.MagicResist,
 				Armor:       stats.Armor,
 				MoveSpeed:   stats.MoveSpeed,
+				Networth:    line.Networth,
 			}
 			setItemFlags(&heroData, heroInventory[heroName])
 			heroDef, ok := HeroAbilitiesMap[heroName]

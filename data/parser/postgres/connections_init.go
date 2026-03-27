@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func ConnectDB() *sql.DB {
-	dsn := "postgres://app:passwoappassrd@localhost:5432/app_db"
+	dsn := "postgres://app:appass@localhost:5432/app_db?sslmode=disable"
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {

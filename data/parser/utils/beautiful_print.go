@@ -1,33 +1,68 @@
+//на это забей
+
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 )
 
-func BeautifulPrintVision(snapshot VisionEnemeyTeam) {
-	fmt.Printf("\n=== TIME: %d сек | День: %v ===\n", snapshot.Time, snapshot.Time%600 < 300)
-	fmt.Printf("%-20s | %-7s | %-6s | %-12s | %-12s | %-10s\n",
-		"Герой", "Видим?", "Тень?", "Ближ.Союз", "Ближ.Враг", "До Тавера")
-	fmt.Println(strings.Repeat("-", 85))
-
-	for _, u := range snapshot.Unit {
-		visibleStr := "НЕТ"
-		if u.IsVisible {
-			visibleStr = "ДА"
-		}
-		shadowStr := "НЕТ"
-		if u.IsLastKnown {
-			shadowStr = "ДА"
-		}
-
-		fmt.Printf("%-20s | %-7s | %-6s | %-12.1f | %-12.1f | %-10.1f\n",
-			u.Name,
-			visibleStr,
-			shadowStr,
-			u.NearestAllyDistance,
-			u.NearestEnemyDistance,
-			u.NearestAllyTowerDistance,
-		)
+func BeautifulPrint[T any](data T) {
+	fmt.Println("================================================================================")
+	fmt.Printf("SNAPSHOT TYPE: %T\n", data)
+	fmt.Println("--------------------------------------------------------------------------------")
+	prettyJSON, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		fmt.Printf("Error formatting data: %v\n", err)
+		return
 	}
+
+	fmt.Println(string(prettyJSON))
+	fmt.Println("================================================================================\n")
+}
+
+func TestBKBcooldown(a []GeneralGameState) {
+	for _, oneGeneral := range a {
+		for i, hero := range oneGeneral.Heroes {
+			if hero.BKBcooldown != 0 {
+				fmt.Println("there is cooldown ", i, hero.HeroName)
+			}
+		}
+	}
+}
+
+func TestCompatibility(general []GeneralGameState, vision []VisionEnemeyTeam) {
+	// 1. Проверка на одинаковую длину массивов
+	if len(general) != len(vision) {
+		fmt.Printf("Ошибка: Массивы разной длины! General: %d, Vision: %d\n", len(general), len(vision))
+	}
+
+	minLen := len(general)
+	if len(vision) < minLen {
+		minLen = len(vision)
+	}
+
+	for i := 0; i < minLen; i++ {
+		// 2. Проверка на совместимость времени (один индекс = одно время)
+		if general[i].GameTime != vision[i].Time {
+			fmt.Printf("Рассинхрон на индексе %d: GeneralTime=%d, VisionTime=%d\n",
+				i, general[i].GameTime, vision[i].Time)
+		}
+
+		// 3. Проверка на "дырки" (последовательность времени)
+		if i > 0 {
+			expectedTime := general[i-1].GameTime + 1
+			if general[i].GameTime != expectedTime {
+				fmt.Printf("Дырка в General на индексе %d: ожидалось %d, получено %d\n",
+					i, expectedTime, general[i].GameTime)
+			}
+
+			if vision[i].Time != vision[i-1].Time+1 {
+				fmt.Printf("Дырка в Vision на индексе %d: ожидалось %d, получено %d\n",
+					i, vision[i-1].Time+1, vision[i].Time)
+			}
+		}
+	}
+
+	fmt.Println("Проверка завершена.")
 }
