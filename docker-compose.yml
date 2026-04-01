@@ -35,37 +35,74 @@ services:
     networks:
       - app_network
 
-  bot:
-    build:
-      context: .  # Важно: контекст - КОРЕНЬ проекта, не services/bot!
-      dockerfile: services/bot/Dockerfile
-    restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    networks:
-      - app_network
+  # bot:
+  #   build:
+  #     context: .  # Важно: контекст - КОРЕНЬ проекта, не services/bot!
+  #     dockerfile: services/bot/Dockerfile
+  #   restart: always
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  #   networks:
+  #     - app_network
 
-  gsi_processor:
+  auth:
     build:
       context: .
-      dockerfile: services/gsi_processor/Dockerfile
+      dockerfile: services/auth/Dockerfile
     restart: always
     depends_on:
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     env_file:
       - .env
     networks:
       - app_network
     ports:
-      - 8000:8000
+      - 8001:8001
+
+  # gsi_processor:
+  #   build:
+  #     context: .
+  #     dockerfile: services/gsi_processor/Dockerfile
+  #   restart: always
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env
+  #   networks:
+  #     - app_network
+  #   ports:
+  #     - 8000:8000
+
+  web:
+    build:
+      context: .
+      dockerfile: services/web/Dockerfile
+    restart: always
+    depends_on:
+      auth:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      AUTH_BASE_URL: http://auth:8001/api/v1
+      REQUEST_TIMEOUT_SECONDS: 10
+      CELLS: ${CELLS:-32}
+      MAP_PATH: assets/600px-Gamemap_7.40_minimap_dota2_gameasset.png
+    networks:
+      - app_network
+    ports:
+      - 8501:8501
 
 volumes:
   postgres_data:

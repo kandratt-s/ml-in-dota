@@ -10,4 +10,6 @@ dependencies = []
 members = [
     "services/gsi_processor",
     "services/bot",
+    "services/web",
+    "services/auth",
 ]
