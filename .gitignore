@@ -186,3 +186,5 @@ tests
 
 #vscode
 .vscode/
+*.jsonl
+
