@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"math/rand"
+	"time"
 
 	"github.com/kandratt-s/ml-in-dota.git/data/parsed/utils"
 )
@@ -24,6 +25,10 @@ const (
 
 	NegativeSampleRate float64 = 0.1
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 func SaveWorker(db *sql.DB, dbChan <-chan FullMatch, done chan<- bool) {
 	for match := range dbChan {
@@ -89,21 +94,23 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
 	defer stmt.Close()
 
 	for i, genState := range fm.General {
+		if genState.GameTime < 0 {
+			continue
+		}
 
 		if i >= len(fm.VisionRadiant) || i >= len(fm.VisionDire) {
 			continue
 		}
 
 		for _, hero := range genState.Heroes {
-
 			willDie := hero.IsDead1s || hero.IsDead5s || hero.IsDead10s || hero.IsDead15s || hero.IsDead20s
-
-			if !willDie && !shouldSampleNegative() {
-				continue
+			if !willDie {
+				if !shouldSampleNegative() {
+					continue
+				}
 			}
 
 			var sourceArray []utils.UnitVisionData
-
 			if hero.IsRadiant {
 				sourceArray = fm.VisionDire[i].Unit
 			} else {
@@ -111,52 +118,46 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
 			}
 
 			var vData utils.UnitVisionData
-			found := false
 			targetName := utils.NormalizeName(hero.HeroName)
 
 			for _, u := range sourceArray {
 				if u.Name == targetName {
 					vData = u
-					found = true
 					break
 				}
 			}
 
-			if !found {
-			}
-
 			_, err = stmt.Exec(
-				// (7)
 				0, genState.MatchID, genState.GameTime, genState.IsDaytime, hero.IsRadiant, genState.RadiantScore, genState.DireScore,
 
-				// (22)
+				// (8-31) Hero stats & current state
 				hero.HeroID, hero.Level, hero.Kills, hero.Deaths, hero.Assists, hero.LastHits, hero.Denies,
 				hero.Gold, hero.Networth, hero.X, hero.Y, utils.GetGridID(hero.X, hero.Y), hero.XP, int(hero.Health), int(hero.Mana), int(hero.MaxHealth), int(hero.MaxMana),
 				hero.Agility, hero.Intellect, hero.Strength, hero.MagicResist, hero.Armor, hero.MoveSpeed, hero.BKBcooldown,
 
-				// (16)
+				// (32-47) Abilities
 				hero.Ability1Level, hero.Ability1CastRange, hero.Ability1ManaCost, hero.Ability1Cooldown,
 				hero.Ability2Level, hero.Ability2CastRange, hero.Ability2ManaCost, hero.Ability2Cooldown,
 				hero.Ability3Level, hero.Ability3CastRange, hero.Ability3ManaCost, hero.Ability3Cooldown,
 				hero.Ability4Level, hero.Ability4CastRange, hero.Ability4ManaCost, hero.Ability4Cooldown,
 
-				// (2)
+				// (48-49) Towers
 				vData.NearestAllyTowerDistance,
 				vData.NearestEnemyTowerDistance,
 
-				// (30)
+				// (50-79) Enemy visibility (5 enemies * 6 params)
 				vData.Enemy1Name, vData.Enemy1LastSeenX, vData.Enemy1LastSeenY, vData.Enemy1LastSeenSq, vData.Enemy1LastSeenDist, vData.Enemy1LastSeenTime,
 				vData.Enemy2Name, vData.Enemy2LastSeenX, vData.Enemy2LastSeenY, vData.Enemy2LastSeenSq, vData.Enemy2LastSeenDist, vData.Enemy2LastSeenTime,
 				vData.Enemy3Name, vData.Enemy3LastSeenX, vData.Enemy3LastSeenY, vData.Enemy3LastSeenSq, vData.Enemy3LastSeenDist, vData.Enemy3LastSeenTime,
 				vData.Enemy4Name, vData.Enemy4LastSeenX, vData.Enemy4LastSeenY, vData.Enemy4LastSeenSq, vData.Enemy4LastSeenDist, vData.Enemy4LastSeenTime,
 				vData.Enemy5Name, vData.Enemy5LastSeenX, vData.Enemy5LastSeenY, vData.Enemy5LastSeenSq, vData.Enemy5LastSeenDist, vData.Enemy5LastSeenTime,
 
-				// (17)
+				// (80-96) Inventory flags
 				hero.ItemBlackKingBar, hero.ItemBlink, hero.ItemForceStaff, hero.ItemBasher, hero.ItemAbyssalBlade,
 				hero.ItemNullifier, hero.ItemLotusOrb, hero.ItemTravelBoots, hero.ItemTpscroll, hero.ItemPhaseBoots,
 				hero.ItemSilverEdge, hero.ItemHeart, hero.ItemSphere, hero.ItemManta, hero.ItemBladeMail, hero.ItemAeonDisk, hero.ItemPipe,
 
-				// (5)
+				// (97-101) Target labels (Future Deaths)
 				hero.IsDead1s, hero.IsDead5s, hero.IsDead10s, hero.IsDead15s, hero.IsDead20s,
 			)
 

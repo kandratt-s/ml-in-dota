@@ -9,8 +9,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func ConnectDB() *sql.DB {
-	dsn := "postgres://app:appass@localhost:5432/app_db?sslmode=disable"
+func ConnectDB(url string) *sql.DB {
+	dsn := url
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
