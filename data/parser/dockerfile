@@ -1,0 +1,23 @@
+# Этап сборки
+FROM golang:1.25-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# Собираем статический бинарник
+RUN CGO_ENABLED=0 GOOS=linux go build -o dota-parser ./main.go
+
+# Финальный образ
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /root/
+# Копируем бинарник и папку со справочниками
+COPY --from=builder /app/dota-parser .
+COPY --from=builder /app/dotadata ./dotadata
+
+# Создаем точку монтирования
+RUN mkdir /data
+ENV MATCHES_DIR=/data
+ENV DB_URL="postgres://app:appass@localhost:5432/app_db?sslmode=disable"
+# Важно: ENTRYPOINT лучше, чем CMD для таких задач
+ENTRYPOINT ["./dota-parser"]

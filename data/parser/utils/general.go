@@ -413,6 +413,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 	slotToHero := make(map[int]string, 10)
 	heroInventory := make(map[string][]string)
 	heroAbilityLevels := make(map[string]map[string]int)
+	heroBkbLastUsed := make(map[string]int)
 	var radiantScore, direScore int
 	lastProcessedTime := -99999
 
@@ -531,12 +532,12 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 
 		case "DOTA_COMBATLOG_MODIFIER_ADD":
 			if line.Inflictor == "modifier_black_king_bar_immune" {
-				heroName := NormalizeHeroName(line.AttackerName)
-				for i, hero := range currentFrame.Heroes {
-					if hero.HeroName == heroName {
-						currentFrame.Heroes[i].BKBcooldown = BKBTotalCooldown
-					}
+				heroName := NormalizeHeroName(line.TargetName)
+				if heroName == "" {
+					heroName = NormalizeHeroName(line.AttackerName)
 				}
+
+				heroBkbLastUsed[heroName] = lineTime
 			}
 
 		case "interval":
@@ -549,6 +550,14 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 			}
 			if heroName == "" || currentFrame == nil {
 				continue
+			}
+
+			bkbCooldown := 0
+			if lastUsed, ok := heroBkbLastUsed[heroName]; ok {
+				elapsed := lineTime - lastUsed
+				if elapsed < int(BKBTotalCooldown) {
+					bkbCooldown = int(BKBTotalCooldown) - elapsed
+				}
 			}
 
 			stats := calculateHeroStats(heroName, line.Level, heroInventory[heroName])
@@ -578,6 +587,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				Armor:       stats.Armor,
 				MoveSpeed:   stats.MoveSpeed,
 				Networth:    line.Networth,
+				BKBcooldown: bkbCooldown,
 			}
 			setItemFlags(&heroData, heroInventory[heroName])
 			heroDef, ok := HeroAbilitiesMap[heroName]

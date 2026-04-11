@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/kandratt-s/ml-in-dota.git/data/parsed/postgres"
@@ -101,7 +104,12 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 }
 
 func main() {
-	db := postgres.ConnectDB()
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		dbURL = "postgres://app:appass@localhost:5432/app_db?sslmode=disable"
+	}
+
+	db := postgres.ConnectDB(dbURL)
 	if db == nil {
 		fmt.Printf("ne udalos conn db")
 		return
@@ -112,6 +120,16 @@ func main() {
 	dbDone := make(chan bool)
 
 	go postgres.SaveWorker(db, dbChan, dbDone)
+
+	matchesDir := os.Getenv("MATCHES_DIR")
+	if matchesDir == "" {
+		matchesDir = "/data"
+	}
+
+	files, err1 := os.ReadDir(matchesDir)
+	if err1 != nil {
+		log.Fatalf("Критическая ошибка: не удалось прочитать папку %s: %v", matchesDir, err1)
+	}
 
 	err := utils.LoadGameData(
 		"dotadata/heroStats.json",
@@ -131,10 +149,12 @@ func main() {
 		go workerParse(w, jobs, dbChan, &wq)
 	}
 
-	for i := 0; i < 1; i++ {
-		filePath := "input_json/match_petra.jsonl" // такой путь для тестов создац
-		wq.Add(1)
-		jobs <- filePath
+	for _, file := range files {
+		if !file.IsDir() && (strings.HasSuffix(file.Name(), ".json") || strings.HasSuffix(file.Name(), ".jsonl")) {
+			filePath := filepath.Join(matchesDir, file.Name())
+			wq.Add(1)
+			jobs <- filePath
+		}
 	}
 	close(jobs)
 
