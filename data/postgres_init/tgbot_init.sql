@@ -17,9 +17,8 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     match_id BIGINT,
     game_time INT,
 
-    is_day BOOLEAN,
-
-    is_radiant BOOLEAN,
+    is_day INT,           -- 0 или 1
+    is_radiant INT,       -- 0 или 1
 
     radiant_score INT,
     dire_score INT,
@@ -38,8 +37,8 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     gold INT,
     net_worth INT,
 
-    x FLOAT,
-    y FLOAT,
+    x INT,
+    y INT,
     square INT,
 
     xp INT,
@@ -83,77 +82,69 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     ability4_cooldown INT,
 
     -- enemies and allies
-    -- nearest_ally_distance FLOAT,
-    -- nearest_enemy_distance FLOAT,
-
-    -- nearest_ally_tp_place_distance FLOAT,
-    nearest_ally_tower_distance FLOAT,
-    nearest_enemy_tower_distance FLOAT,
-
-    -- enemy_last_seen_x FLOAT,
-    -- nearest_enemy_last_seen_y FLOAT,
-    -- nearest_enemy_last_seen_time INT,
+    nearest_ally_tower_distance INT,
+    nearest_enemy_tower_distance INT,
 
     enemy_1_name VARCHAR,
     enemy_1_last_seen_x INT,
     enemy_1_last_seen_y INT,
     enemy_1_last_seen_sqare INT,
-    enemy_1_last_seen_distance FLOAT,
+    enemy_1_last_seen_distance INT,
     enemy_1_last_seen_time INT,
 
     enemy_2_name VARCHAR,
     enemy_2_last_seen_x INT,
     enemy_2_last_seen_y INT,
     enemy_2_last_seen_sqare INT,
-    enemy_2_last_seen_distance FLOAT,
+    enemy_2_last_seen_distance INT,
     enemy_2_last_seen_time INT,
 
     enemy_3_name VARCHAR,
     enemy_3_last_seen_x INT,
     enemy_3_last_seen_y INT,
     enemy_3_last_seen_sqare INT,
-    enemy_3_last_seen_distance FLOAT,
+    enemy_3_last_seen_distance INT,
     enemy_3_last_seen_time INT,
 
     enemy_4_name VARCHAR,
     enemy_4_last_seen_x INT,
     enemy_4_last_seen_y INT,
     enemy_4_last_seen_sqare INT,
-    enemy_4_last_seen_distance FLOAT,
+    enemy_4_last_seen_distance INT,
     enemy_4_last_seen_time INT,
 
     enemy_5_name VARCHAR,
     enemy_5_last_seen_x INT,
     enemy_5_last_seen_y INT,
     enemy_5_last_seen_sqare INT,
-    enemy_5_last_seen_distance FLOAT,
+    enemy_5_last_seen_distance INT,
     enemy_5_last_seen_time INT,
 
-    -- active(?) safe items
-    item_black_king_bar BOOLEAN,
-    item_blink BOOLEAN,
-    item_force_staff BOOLEAN,
-    item_basher BOOLEAN,
-    item_abyssal_blade BOOLEAN,
-    item_nullifier BOOLEAN,
-    item_lotus_orb BOOLEAN,
-    item_travel_boots BOOLEAN,
-    item_tpscroll BOOLEAN,
-    item_phase_boots BOOLEAN,
-    item_silver_edge BOOLEAN,
-    item_heart BOOLEAN,
-    item_sphere BOOLEAN,
-    item_manta BOOLEAN,
-    item_blade_mail BOOLEAN,
-    item_aeon_disk BOOLEAN,
-    item_pipe BOOLEAN,
+    -- active items (0 or 1)
+    item_black_king_bar INT,
+    item_blink INT,
+    item_force_staff INT,
+    item_basher INT,
+    item_abyssal_blade INT,
+    item_nullifier INT,
+    item_lotus_orb INT,
+    item_travel_boots INT,
+    item_tpscroll INT,
+    item_phase_boots INT,
+    item_silver_edge INT,
+    item_heart INT,
+    item_sphere INT,
+    item_manta INT,
+    item_blade_mail INT,
+    item_aeon_disk INT,
+    item_pipe INT,
 
-    -- target variable
-    dead_in_1 BOOLEAN,
-    dead_in_5 BOOLEAN,
-    dead_in_10 BOOLEAN,
-    dead_in_15 BOOLEAN,
-    dead_in_20 BOOLEAN
+    -- target variable (0 or 1)
+    dead_in_1 INT,
+    dead_in_5 INT,
+    dead_in_10 INT,
+    dead_in_15 INT,
+    dead_in_20 INT
 );
 
 create index idx_match_time on dataset.match_features (match_id, game_time);
