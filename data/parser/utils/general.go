@@ -68,6 +68,7 @@ type HeroGeneralData struct {
 	HeroID      int     `json:"hero_id"`
 	HeroName    string  `json:"hero_name"`
 	IsRadiant   int     `json:"is_radiant"`
+	TeamSlot    int     `json:"team_slot"`
 	Level       int     `json:"level"`
 	Kills       int     `json:"kills"`
 	Deaths      int     `json:"deaths"`
@@ -569,10 +570,13 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				isRadiantVal = 1
 			}
 
+			teamSlot := (line.Slot % 5) + 1
+
 			heroData := HeroGeneralData{
 				HeroName:    heroName,
 				HeroID:      line.HeroID,
 				IsRadiant:   isRadiantVal,
+				TeamSlot:    teamSlot, // Добавляем вычисленный индекс
 				Level:       line.Level,
 				Kills:       line.Kills,
 				Deaths:      line.Deaths,
@@ -690,7 +694,6 @@ func fetchMatchIDFromEpilogue(filePath string) int64 {
 		return 0
 	}
 
-	// Берем последние 8КБ, чтобы точно захватить эпилог
 	readSize := int64(8192)
 	if filesize < readSize {
 		readSize = filesize
@@ -704,22 +707,18 @@ func fetchMatchIDFromEpilogue(filePath string) int64 {
 
 	s := string(buf)
 
-	// Ищем только ключ, без кавычек и двоеточий
 	target := "matchId_"
 	idx := strings.LastIndex(s, target)
 	if idx == -1 {
 		return 0
 	}
 
-	// Начинаем поиск цифр сразу после найденного ключа
 	start := idx + len(target)
 
-	// Пропускаем всё, что не является цифрой (\, ", :, пробелы)
 	for start < len(s) && (s[start] < '0' || s[start] > '9') {
 		start++
 	}
 
-	// Собираем все идущие подряд цифры
 	end := start
 	for end < len(s) && s[end] >= '0' && s[end] <= '9' {
 		end++
@@ -729,7 +728,6 @@ func fetchMatchIDFromEpilogue(filePath string) int64 {
 		return 0
 	}
 
-	// Конвертируем в int64
 	id, _ := strconv.ParseInt(s[start:end], 10, 64)
 	return id
 }

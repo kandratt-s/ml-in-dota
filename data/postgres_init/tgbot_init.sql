@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     strength INT,
 
     magical_resistance INT,
-    armor FLOAT,
+    armor INT,
 
     bkb_cooldown INT,
 
@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     nearest_ally_tower_distance INT,
     nearest_enemy_tower_distance INT,
 
+    slot_1_id INT,
     enemy_1_name VARCHAR,
     enemy_1_last_seen_x INT,
     enemy_1_last_seen_y INT,
@@ -92,6 +93,7 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     enemy_1_last_seen_distance INT,
     enemy_1_last_seen_time INT,
 
+    slot_2_id INT,
     enemy_2_name VARCHAR,
     enemy_2_last_seen_x INT,
     enemy_2_last_seen_y INT,
@@ -99,6 +101,7 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     enemy_2_last_seen_distance INT,
     enemy_2_last_seen_time INT,
 
+    slot_3_id INT,
     enemy_3_name VARCHAR,
     enemy_3_last_seen_x INT,
     enemy_3_last_seen_y INT,
@@ -106,6 +109,7 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     enemy_3_last_seen_distance INT,
     enemy_3_last_seen_time INT,
 
+    slot_4_id INT,
     enemy_4_name VARCHAR,
     enemy_4_last_seen_x INT,
     enemy_4_last_seen_y INT,
@@ -113,6 +117,7 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     enemy_4_last_seen_distance INT,
     enemy_4_last_seen_time INT,
 
+    slot_5_id INT,
     enemy_5_name VARCHAR,
     enemy_5_last_seen_x INT,
     enemy_5_last_seen_y INT,
