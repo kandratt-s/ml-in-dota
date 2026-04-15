@@ -64,28 +64,7 @@ func NormalizeName(name string) string {
 }
 
 func GetGridID(x, y float32) int {
-	offset := -GridXMin
-
-	totalWidth := GridXMax - GridXMin
-	cellSize := totalWidth / float32(GridCells)
-
-	col := int((x + offset) / cellSize)
-	row := int((y + (-GridYMin)) / ((GridYMax - GridYMin) / float32(GridCells)))
-
-	if col < 0 {
-		col = 0
-	}
-	if col >= GridCells {
-		col = GridCells - 1
-	}
-	if row < 0 {
-		row = 0
-	}
-	if row >= GridCells {
-		row = GridCells - 1
-	}
-
-	return row*GridCells + col
+	return int((y-GridYMin)/(GridYMax-GridYMin)*float32(GridCells))*GridCells + int((x-GridXMin)/(GridXMax-GridXMin)*float32(GridCells))
 }
 
 func getTreeGridIdx(x, y float32) int {
