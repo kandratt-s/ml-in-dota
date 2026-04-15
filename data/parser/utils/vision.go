@@ -29,20 +29,20 @@ const (
 	GridCells int     = 32
 )
 
-var InvisibilityModifiers = map[string]bool{
-	"modifier_rune_invis":                 true,
-	"modifier_bounty_hunter_wind_walk":    true,
-	"modifier_clinkz_wind_walk":           true,
-	"modifier_item_glimmer_cape_fade":     true,
-	"modifier_item_invis_sword":           true,
-	"modifier_item_silver_edge":           true,
-	"modifier_invoker_ghost_walk_enemy":   true,
-	"modifier_nyx_assassin_vendetta":      true,
-	"modifier_sandking_sand_storm_invis":  true,
-	"modifier_templar_assassin_meld":      true,
-	"modifier_treant_nature_guise":        true,
-	"modifier_weaver_shukuchi":            true,
-	"modifier_winter_wyvern_cold_embrace": true,
+var InvisibilityModifiers = map[string]int{
+	"modifier_rune_invis":                 1,
+	"modifier_bounty_hunter_wind_walk":    1,
+	"modifier_clinkz_wind_walk":           1,
+	"modifier_item_glimmer_cape_fade":     1,
+	"modifier_item_invis_sword":           1,
+	"modifier_item_silver_edge":           1,
+	"modifier_invoker_ghost_walk_enemy":   1,
+	"modifier_nyx_assassin_vendetta":      1,
+	"modifier_sandking_sand_storm_invis":  1,
+	"modifier_templar_assassin_meld":      1,
+	"modifier_treant_nature_guise":        1,
+	"modifier_weaver_shukuchi":            1,
+	"modifier_winter_wyvern_cold_embrace": 1,
 }
 
 const ModifierSmoke = "modifier_smoke_of_deceit"
@@ -57,7 +57,7 @@ type InputLogLine struct {
 	UnitLongName string  `json:"unit,omitempty"`
 	LifeState    int     `json:"life_state,omitempty"`
 	Ehandle      int     `json:"ehandle,omitempty"`
-	EntityLeft   bool    `json:"entityleft,omitempty"`
+	EntityLeft   int     `json:"entityleft,omitempty"`
 	AttackerName string  `json:"attackername,omitempty"`
 	TargetName   string  `json:"targetname,omitempty"`
 	Inflictor    string  `json:"inflictor,omitempty"`
@@ -72,7 +72,7 @@ type VisionEnemeyTeam struct {
 
 type UnitVisionData struct {
 	Name      string `json:"name"`
-	IsVisible bool   `json:"is_visible"`
+	IsVisible int    `json:"is_visible"`
 
 	X float32 `json:"x"`
 	Y float32 `json:"y"`
@@ -124,9 +124,9 @@ type UnitState struct {
 	Name             string
 	Team             int
 	X, Y, Z          float32
-	IsAlive          bool
-	Modifiers        map[string]bool // на всякий случай
-	CurrentlyVisible bool
+	IsAlive          int
+	Modifiers        map[string]int
+	CurrentlyVisible int
 
 	LastSeenX    float32
 	LastSeenY    float32
@@ -138,13 +138,13 @@ type WardState struct {
 	Ehandle    int
 	Team       int
 	X, Y, Z    float32
-	IsObserver bool
+	IsObserver int
 	EndTime    float64
 }
 
 type GameState struct {
 	CurrentTime float64
-	IsDaytime   bool
+	IsDaytime   int
 	Heroes      map[string]*UnitState
 	ActiveWards []*WardState
 	MyTeam      int
@@ -199,7 +199,11 @@ func ParseVisionWorker(filePath string, myTeam int) ([]VisionEnemeyTeam, error) 
 func (gs *GameState) Update(line InputLogLine) {
 	gs.CurrentTime = line.Time
 	if line.Time >= 0 {
-		gs.IsDaytime = (int(line.Time) % 600) < 300
+		if (int(line.Time) % 600) < 300 {
+			gs.IsDaytime = 1
+		} else {
+			gs.IsDaytime = 0
+		}
 	}
 
 	switch line.Type {
@@ -212,41 +216,50 @@ func (gs *GameState) Update(line InputLogLine) {
 				if line.Slot >= 5 {
 					team = 3
 				}
-				hero = &UnitState{Name: name, Team: team, Modifiers: make(map[string]bool)}
+				hero = &UnitState{Name: name, Team: team, Modifiers: make(map[string]int)}
 				gs.Heroes[name] = hero
 			}
 			hero.X, hero.Y, hero.Z = ToWorld(line.X), ToWorld(line.Y), line.Z
-			hero.IsAlive = (line.LifeState == 0)
+			if line.LifeState == 0 {
+				hero.IsAlive = 1
+			} else {
+				hero.IsAlive = 0
+			}
 		}
 
 	case "obs", "sen":
 		gs.RemoveWard(line.Ehandle)
-		if line.EntityLeft {
+		if line.EntityLeft == 1 {
 			return
 		}
 		team := 2
 		if line.Slot >= 5 {
 			team = 3
 		}
+		isObs := 0
+		if line.Type == "obs" {
+			isObs = 1
+		}
 		gs.ActiveWards = append(gs.ActiveWards, &WardState{
 			Ehandle: line.Ehandle, Team: team, X: ToWorld(line.X), Y: ToWorld(line.Y),
-			Z: line.Z, IsObserver: line.Type == "obs", EndTime: line.Time + 360.0,
+			Z: line.Z, IsObserver: isObs, EndTime: line.Time + 360.0,
 		})
 
 	case "DOTA_COMBATLOG_DAMAGE":
 		if attacker, ok := gs.Heroes[line.AttackerName]; ok {
 			if strings.Contains(line.TargetName, "creep") {
-				targetIsGood := strings.Contains(line.TargetName, "goodguys")
+				targetIsGood := 0
+				if strings.Contains(line.TargetName, "goodguys") {
+					targetIsGood = 1
+				}
 				attackerTeam := attacker.Team
 
-				revealed := false
-				if targetIsGood && attackerTeam == 3 {
-					revealed = true
-				} else if !targetIsGood && attackerTeam == 2 {
-					revealed = true
+				revealed := 0
+				if (targetIsGood == 1 && attackerTeam == 3) || (targetIsGood == 0 && attackerTeam == 2) {
+					revealed = 1
 				}
 
-				if revealed {
+				if revealed == 1 {
 					attacker.X, attacker.Y, attacker.Z = ToWorld(line.X), ToWorld(line.Y), line.Z
 					attacker.LastSeenTime = line.Time
 					attacker.LastSeenX, attacker.LastSeenY, attacker.LastSeenZ = attacker.X, attacker.Y, attacker.Z
@@ -254,9 +267,9 @@ func (gs *GameState) Update(line InputLogLine) {
 			}
 		}
 
-	case "DOTA_COMBATLOG_MODIFIER_ADD": // на всякий случай
+	case "DOTA_COMBATLOG_MODIFIER_ADD":
 		if hero, ok := gs.Heroes[line.TargetName]; ok {
-			hero.Modifiers[line.Inflictor] = true
+			hero.Modifiers[line.Inflictor] = 1
 		}
 
 	case "DOTA_COMBATLOG_MODIFIER_REMOVE":
@@ -275,12 +288,12 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 	var towers []*UnitState
 
 	for _, h := range gs.Heroes {
-		if h.Team == gs.MyTeam && h.IsAlive {
+		if h.Team == gs.MyTeam && h.IsAlive == 1 {
 			visionSources = append(visionSources, h)
 		}
 	}
 	for _, t := range gs.Towers {
-		if t.Team == gs.MyTeam && t.IsAlive {
+		if t.Team == gs.MyTeam && t.IsAlive == 1 {
 			visionSources = append(visionSources, t)
 			trueSightSources = append(trueSightSources, t)
 			towers = append(towers, t)
@@ -288,7 +301,7 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 	}
 	for _, w := range gs.ActiveWards {
 		if w.Team == gs.MyTeam && gs.CurrentTime < w.EndTime {
-			if w.IsObserver {
+			if w.IsObserver == 1 {
 				obsWards = append(obsWards, w)
 			} else {
 				trueSightSources = append(trueSightSources, &UnitState{X: w.X, Y: w.Y, Z: w.Z})
@@ -303,17 +316,17 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 		}
 		enemyHeroes = append(enemyHeroes, enemy)
 
-		visibleNow := false
-		if enemy.IsAlive {
+		visibleNow := 0
+		if enemy.IsAlive == 1 {
 			visibleNow = gs.IsUnitVisible(enemy, visionSources, obsWards, trueSightSources, towers)
 		}
 
 		if gs.CurrentTime-enemy.LastSeenTime < 0.1 {
-			visibleNow = true
+			visibleNow = 1
 		}
 
 		enemy.CurrentlyVisible = visibleNow
-		if visibleNow {
+		if visibleNow == 1 {
 			enemy.LastSeenX, enemy.LastSeenY, enemy.LastSeenZ = enemy.X, enemy.Y, enemy.Z
 			enemy.LastSeenTime = gs.CurrentTime
 		}
@@ -331,14 +344,14 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 		data := UnitVisionData{
 			Name:                      targetEnemy.Name,
 			IsVisible:                 targetEnemy.CurrentlyVisible,
-			NearestAllyDistance:       gs.getNearestHeroDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team, true),
-			NearestEnemyDistance:      gs.getNearestHeroDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team, false),
+			NearestAllyDistance:       gs.getNearestHeroDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team, 1),
+			NearestEnemyDistance:      gs.getNearestHeroDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team, 0),
 			NearestAllyTowerDistance:  gs.getNearestTowerDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team),
 			NearestEnemyTowerDistance: gs.getNearestTowerDist(targetEnemy.X, targetEnemy.Y, gs.MyTeam),
 			TimeFromLastSeen:          float32(gs.CurrentTime - targetEnemy.LastSeenTime),
 		}
 
-		if data.IsVisible {
+		if data.IsVisible == 1 {
 			data.X, data.Y, data.Z = targetEnemy.X, targetEnemy.Y, targetEnemy.Z
 		} else {
 			data.X, data.Y, data.Z = targetEnemy.LastSeenX, targetEnemy.LastSeenY, targetEnemy.LastSeenZ
@@ -398,60 +411,60 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 	return snapshot
 }
 
-func (gs *GameState) IsUnitVisible(enemy *UnitState, visionUnits []*UnitState, obsWards []*WardState, trueSight []*UnitState, towers []*UnitState) bool {
-	if enemy.Modifiers[ModifierSmoke] {
+func (gs *GameState) IsUnitVisible(enemy *UnitState, visionUnits []*UnitState, obsWards []*WardState, trueSight []*UnitState, towers []*UnitState) int {
+	if enemy.Modifiers[ModifierSmoke] == 1 {
 		for _, v := range visionUnits {
 			if GetDistSq(v.X, v.Y, enemy.X, enemy.Y) <= SmokeBreakRadius*SmokeBreakRadius {
-				return true
+				return 1
 			}
 		}
-		return false
+		return 0
 	}
 
-	isInvis := false
+	isInvis := 0
 	for mod := range enemy.Modifiers {
-		if InvisibilityModifiers[mod] {
-			isInvis = true
+		if InvisibilityModifiers[mod] == 1 {
+			isInvis = 1
 			break
 		}
 	}
 
-	if isInvis {
-		isRevealed := false
+	if isInvis == 1 {
+		isRevealed := 0
 		for _, ts := range trueSight {
 			if GetDistSq(ts.X, ts.Y, enemy.X, enemy.Y) <= SentryTrueSight*SentryTrueSight {
-				isRevealed = true
+				isRevealed = 1
 				break
 			}
 		}
-		if !isRevealed {
-			return false
+		if isRevealed == 0 {
+			return 0
 		}
 	}
 
 	radSq := VisionRadiusDay * VisionRadiusDay
-	if !gs.IsDaytime {
+	if gs.IsDaytime == 0 {
 		radSq = VisionRadiusNight * VisionRadiusNight
 	}
 
 	for _, ally := range visionUnits {
 		if GetDistSq(ally.X, ally.Y, enemy.X, enemy.Y) <= radSq {
-			if enemy.Z <= ally.Z+HighGroundLimit && !gs.IsPathBlockedByTrees(ally.X, ally.Y, enemy.X, enemy.Y) {
-				return true
+			if enemy.Z <= ally.Z+HighGroundLimit && gs.IsPathBlockedByTrees(ally.X, ally.Y, enemy.X, enemy.Y) == 0 {
+				return 1
 			}
 		}
 	}
 	for _, ward := range obsWards {
 		if GetDistSq(ward.X, ward.Y, enemy.X, enemy.Y) <= VisionRadiusWard*VisionRadiusWard {
-			if enemy.Z <= ward.Z+HighGroundLimit && !gs.IsPathBlockedByTrees(ward.X, ward.Y, enemy.X, enemy.Y) {
-				return true
+			if enemy.Z <= ward.Z+HighGroundLimit && gs.IsPathBlockedByTrees(ward.X, ward.Y, enemy.X, enemy.Y) == 0 {
+				return 1
 			}
 		}
 	}
-	return false
+	return 0
 }
 
-func (gs *GameState) IsPathBlockedByTrees(x1, y1, x2, y2 float32) bool {
+func (gs *GameState) IsPathBlockedByTrees(x1, y1, x2, y2 float32) int {
 	minX, maxX := minF(x1, x2)-TreeBlockRadius, maxF(x1, x2)+TreeBlockRadius
 	minY, maxY := minF(y1, y2)-TreeBlockRadius, maxF(y1, y2)+TreeBlockRadius
 
@@ -466,27 +479,30 @@ func (gs *GameState) IsPathBlockedByTrees(x1, y1, x2, y2 float32) bool {
 			idx := gx*cols + gy
 			if trees, ok := gs.TreeGrid[idx]; ok {
 				for _, tree := range trees {
-					if isPointNearSegment(tree.X, tree.Y, x1, y1, x2, y2, TreeBlockRadius) {
-						return true
+					if isPointNearSegment(tree.X, tree.Y, x1, y1, x2, y2, TreeBlockRadius) == 1 {
+						return 1
 					}
 				}
 			}
 		}
 	}
-	return false
+	return 0
 }
 
-func isPointNearSegment(px, py, x1, y1, x2, y2, threshold float32) bool {
+func isPointNearSegment(px, py, x1, y1, x2, y2, threshold float32) int {
 	dx, dy := x2-x1, y2-y1
 	if dx == 0 && dy == 0 {
-		return false
+		return 0
 	}
 	t := ((px-x1)*dx + (py-y1)*dy) / (dx*dx + dy*dy)
 	if t < 0 || t > 1 {
-		return false
+		return 0
 	}
 	nearestX, nearestY := x1+t*dx, y1+t*dy
-	return (px-nearestX)*(px-nearestX)+(py-nearestY)*(py-nearestY) < threshold*threshold
+	if (px-nearestX)*(px-nearestX)+(py-nearestY)*(py-nearestY) < threshold*threshold {
+		return 1
+	}
+	return 0
 }
 
 func (gs *GameState) InitMap(mapDataJSON []byte) {
@@ -503,7 +519,7 @@ func (gs *GameState) InitMap(mapDataJSON []byte) {
 		if tx > 0 || ty > 0 {
 			team = 3
 		}
-		gs.Towers = append(gs.Towers, &UnitState{Name: "tower", X: tx, Y: ty, Z: 128, Team: team, IsAlive: true})
+		gs.Towers = append(gs.Towers, &UnitState{Name: "tower", X: tx, Y: ty, Z: 128, Team: team, IsAlive: 1})
 	}
 	for _, t := range raw.Data.Trees {
 		tr := Tree{X: float32(t["x"].(float64)), Y: float32(t["y"].(float64))}
@@ -512,13 +528,13 @@ func (gs *GameState) InitMap(mapDataJSON []byte) {
 	}
 }
 
-func (gs *GameState) getNearestHeroDist(x, y float32, team int, wantAlly bool) float32 {
+func (gs *GameState) getNearestHeroDist(x, y float32, team int, wantAlly int) float32 {
 	var minDist float32 = 99999
 	for _, h := range gs.Heroes {
-		if !h.IsAlive || (h.X == x && h.Y == y) {
+		if h.IsAlive == 0 || (h.X == x && h.Y == y) {
 			continue
 		}
-		if (wantAlly && h.Team != team) || (!wantAlly && h.Team == team) {
+		if (wantAlly == 1 && h.Team != team) || (wantAlly == 0 && h.Team == team) {
 			continue
 		}
 		if d := GetDist(x, y, h.X, h.Y); d < minDist {
@@ -531,7 +547,7 @@ func (gs *GameState) getNearestHeroDist(x, y float32, team int, wantAlly bool) f
 func (gs *GameState) getNearestTowerDist(x, y float32, team int) float32 {
 	var minDist float32 = 99999
 	for _, t := range gs.Towers {
-		if t.Team == team && t.IsAlive {
+		if t.Team == team && t.IsAlive == 1 {
 			if d := GetDist(x, y, t.X, t.Y); d < minDist {
 				minDist = d
 			}

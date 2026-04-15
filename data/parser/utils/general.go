@@ -15,10 +15,10 @@ var (
 	HeroAbilitiesMap map[string]HeroAbilitiesDefinition
 )
 
-var ConsumableItems = map[string]bool{
-	"tango": true, "clarity": true, "enchanted_mango": true, "faerie_fire": true,
-	"flask": true, "ward_observer": true, "ward_sentry": true, "smoke_of_deceit": true,
-	"dust": true, "tpscroll": true, "cheese": true, "refresher_shard": true, "aegis": true,
+var ConsumableItems = map[string]int{
+	"tango": 1, "clarity": 1, "enchanted_mango": 1, "faerie_fire": 1,
+	"flask": 1, "ward_observer": 1, "ward_sentry": 1, "smoke_of_deceit": 1,
+	"dust": 1, "tpscroll": 1, "cheese": 1, "refresher_shard": 1, "aegis": 1,
 }
 
 const BKBTotalCooldown = 90.0
@@ -67,7 +67,8 @@ type AbilityDefinition struct {
 type HeroGeneralData struct {
 	HeroID      int     `json:"hero_id"`
 	HeroName    string  `json:"hero_name"`
-	IsRadiant   bool    `json:"is_radiant"`
+	IsRadiant   int     `json:"is_radiant"`
+	TeamSlot    int     `json:"team_slot"`
 	Level       int     `json:"level"`
 	Kills       int     `json:"kills"`
 	Deaths      int     `json:"deaths"`
@@ -78,6 +79,7 @@ type HeroGeneralData struct {
 	X           float32 `json:"x"`
 	Y           float32 `json:"y"`
 	XP          int     `json:"xp"`
+	Square      int     `json:"square"`
 	Networth    int     `json:"networth"`
 	Health      float32 `json:"health"`
 	MaxHealth   float32 `json:"max_health"`
@@ -91,25 +93,25 @@ type HeroGeneralData struct {
 	MoveSpeed   int     `json:"movespeed"`
 	BKBcooldown int     `json:"bkb_cooldown"`
 
-	ItemBlackKingBar bool `json:"item_black_king_bar"`
-	ItemBlink        bool `json:"item_blink"`
-	ItemForceStaff   bool `json:"item_force_staff"`
-	ItemBasher       bool `json:"item_basher"`
-	ItemAbyssalBlade bool `json:"item_abyssal_blade"`
-	ItemNullifier    bool `json:"item_nullifier"`
-	ItemLotusOrb     bool `json:"item_lotus_orb"`
-	ItemTravelBoots  bool `json:"item_travel_boots"`
-	ItemTpscroll     bool `json:"item_tpscroll"`
-	ItemPhaseBoots   bool `json:"item_phase_boots"`
-	ItemSilverEdge   bool `json:"item_silver_edge"`
-	ItemHeart        bool `json:"item_heart"`
-	ItemSphere       bool `json:"item_sphere"`
-	ItemManta        bool `json:"item_manta"`
-	ItemBladeMail    bool `json:"item_blade_mail"`
-	ItemAeonDisk     bool `json:"item_aeon_disk"`
-	ItemPipe         bool `json:"item_pipe"`
+	ItemBlackKingBar int `json:"item_black_king_bar"`
+	ItemBlink        int `json:"item_blink"`
+	ItemForceStaff   int `json:"item_force_staff"`
+	ItemBasher       int `json:"item_basher"`
+	ItemAbyssalBlade int `json:"item_abyssal_blade"`
+	ItemNullifier    int `json:"item_nullifier"`
+	ItemLotusOrb     int `json:"item_lotus_orb"`
+	ItemTravelBoots  int `json:"item_travel_boots"`
+	ItemTpscroll     int `json:"item_tpscroll"`
+	ItemPhaseBoots   int `json:"item_phase_boots"`
+	ItemSilverEdge   int `json:"item_silver_edge"`
+	ItemHeart        int `json:"item_heart"`
+	ItemSphere       int `json:"item_sphere"`
+	ItemManta        int `json:"item_manta"`
+	ItemBladeMail    int `json:"item_blade_mail"`
+	ItemAeonDisk     int `json:"item_aeon_disk"`
+	ItemPipe         int `json:"item_pipe"`
 
-	// Abiliti
+	// Ability
 	Ability1Level     int `json:"ability1_level"`
 	Ability1CastRange int `json:"ability1_castrange"`
 	Ability1ManaCost  int `json:"ability1_manacost"`
@@ -130,11 +132,11 @@ type HeroGeneralData struct {
 	Ability4ManaCost  int `json:"ability4_manacost"`
 	Ability4Cooldown  int `json:"ability4_cooldown"`
 
-	IsDead20s bool
-	IsDead15s bool
-	IsDead10s bool
-	IsDead5s  bool
-	IsDead1s  bool
+	IsDead20s int
+	IsDead15s int
+	IsDead10s int
+	IsDead5s  int
+	IsDead1s  int
 }
 
 type rawLine struct {
@@ -166,7 +168,7 @@ type rawLine struct {
 type GeneralGameState struct {
 	MatchID      int64             `json:"match_id"`
 	GameTime     int               `json:"game_time"`
-	IsDaytime    bool              `json:"day"`
+	IsDaytime    int               `json:"day"`
 	RadiantScore int               `json:"radiant_score"`
 	DireScore    int               `json:"dire_score"`
 	Heroes       []HeroGeneralData `json:"heroes"`
@@ -340,60 +342,60 @@ func calculateHeroStats(heroName string, level int, inventory []string) calculat
 }
 
 func setItemFlags(hero *HeroGeneralData, inventory []string) {
-	hero.ItemBlackKingBar = false
-	hero.ItemBlink = false
-	hero.ItemForceStaff = false
-	hero.ItemBasher = false
-	hero.ItemAbyssalBlade = false
-	hero.ItemNullifier = false
-	hero.ItemLotusOrb = false
-	hero.ItemTravelBoots = false
-	hero.ItemTpscroll = false
-	hero.ItemPhaseBoots = false
-	hero.ItemSilverEdge = false
-	hero.ItemHeart = false
-	hero.ItemSphere = false
-	hero.ItemManta = false
-	hero.ItemBladeMail = false
-	hero.ItemAeonDisk = false
-	hero.ItemPipe = false
+	hero.ItemBlackKingBar = 0
+	hero.ItemBlink = 0
+	hero.ItemForceStaff = 0
+	hero.ItemBasher = 0
+	hero.ItemAbyssalBlade = 0
+	hero.ItemNullifier = 0
+	hero.ItemLotusOrb = 0
+	hero.ItemTravelBoots = 0
+	hero.ItemTpscroll = 0
+	hero.ItemPhaseBoots = 0
+	hero.ItemSilverEdge = 0
+	hero.ItemHeart = 0
+	hero.ItemSphere = 0
+	hero.ItemManta = 0
+	hero.ItemBladeMail = 0
+	hero.ItemAeonDisk = 0
+	hero.ItemPipe = 0
 
 	for _, item := range inventory {
 		switch item {
 		case "black_king_bar":
-			hero.ItemBlackKingBar = true
+			hero.ItemBlackKingBar = 1
 		case "blink", "overwhelming_blink", "swift_blink", "arcane_blink":
-			hero.ItemBlink = true
+			hero.ItemBlink = 1
 		case "force_staff", "hurricane_pike":
-			hero.ItemForceStaff = true
+			hero.ItemForceStaff = 1
 		case "basher":
-			hero.ItemBasher = true
+			hero.ItemBasher = 1
 		case "abyssal_blade":
-			hero.ItemAbyssalBlade = true
+			hero.ItemAbyssalBlade = 1
 		case "nullifier":
-			hero.ItemNullifier = true
+			hero.ItemNullifier = 1
 		case "lotus_orb":
-			hero.ItemLotusOrb = true
+			hero.ItemLotusOrb = 1
 		case "travel_boots", "travel_boots_2":
-			hero.ItemTravelBoots = true
+			hero.ItemTravelBoots = 1
 		case "tpscroll":
-			hero.ItemTpscroll = true
+			hero.ItemTpscroll = 1
 		case "phase_boots":
-			hero.ItemPhaseBoots = true
+			hero.ItemPhaseBoots = 1
 		case "silver_edge":
-			hero.ItemSilverEdge = true
+			hero.ItemSilverEdge = 1
 		case "heart":
-			hero.ItemHeart = true
+			hero.ItemHeart = 1
 		case "sphere":
-			hero.ItemSphere = true
+			hero.ItemSphere = 1
 		case "manta":
-			hero.ItemManta = true
+			hero.ItemManta = 1
 		case "blade_mail":
-			hero.ItemBladeMail = true
+			hero.ItemBladeMail = 1
 		case "aeon_disk":
-			hero.ItemAeonDisk = true
+			hero.ItemAeonDisk = 1
 		case "pipe":
-			hero.ItemPipe = true
+			hero.ItemPipe = 1
 		}
 	}
 }
@@ -405,11 +407,12 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 	}
 	defer file.Close()
 
-	heroToIsRadiant := make(map[string]bool)
+	currentMatchID := fetchMatchIDFromEpilogue(filePath)
+
+	heroToIsRadiant := make(map[string]int)
 
 	results := make([]GeneralGameState, 0, 4000)
 	var currentFrame *GeneralGameState
-	var currentMatchID int64
 	slotToHero := make(map[int]string, 10)
 	heroInventory := make(map[string][]string)
 	heroAbilityLevels := make(map[string]map[string]int)
@@ -476,8 +479,8 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 			if line.TargetHero {
 				attacker := NormalizeHeroName(line.AttackerName)
 				isRadiantKiller, exists := heroToIsRadiant[attacker]
-				if exists {
-					if isRadiantKiller {
+				if exists == true {
+					if isRadiantKiller == 1 {
 						radiantScore++
 					} else {
 						direScore++
@@ -507,7 +510,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 			if line.AttackerName != "" && line.Inflictor != "" {
 				heroName := NormalizeHeroName(line.AttackerName)
 				itemToRemove := strings.TrimPrefix(line.Inflictor, "item_")
-				if ConsumableItems[itemToRemove] {
+				if ConsumableItems[itemToRemove] == 1 {
 					inventory := heroInventory[heroName]
 					for i, item := range inventory {
 						if item == itemToRemove {
@@ -562,10 +565,18 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 
 			stats := calculateHeroStats(heroName, line.Level, heroInventory[heroName])
 
+			isRadiantVal := 0
+			if line.Slot < 5 {
+				isRadiantVal = 1
+			}
+
+			teamSlot := (line.Slot % 5) + 1
+
 			heroData := HeroGeneralData{
 				HeroName:    heroName,
 				HeroID:      line.HeroID,
-				IsRadiant:   line.Slot < 5,
+				IsRadiant:   isRadiantVal,
+				TeamSlot:    teamSlot, // Добавляем вычисленный индекс
 				Level:       line.Level,
 				Kills:       line.Kills,
 				Deaths:      line.Deaths,
@@ -576,6 +587,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				XP:          line.XP,
 				X:           line.X,
 				Y:           line.Y,
+				Square:      GetGridID(line.X, line.Y),
 				Health:      stats.Health,
 				MaxHealth:   stats.MaxHealth,
 				Mana:        stats.Mana,
@@ -615,7 +627,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 
 			currentFrame.Heroes = append(currentFrame.Heroes, heroData)
 			heroName = NormalizeHeroName(heroName)
-			heroToIsRadiant[heroName] = line.Slot < 5
+			heroToIsRadiant[heroName] = isRadiantVal
 		}
 	}
 	if currentFrame != nil {
@@ -624,11 +636,14 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 	return results, nil
 }
 
-func isDaylight(gameTime float64) bool {
+func isDaylight(gameTime float64) int {
 	if gameTime < 0 {
-		return true
+		return 1
 	}
-	return (int(gameTime) % 600) < 300
+	if (int(gameTime) % 600) < 300 {
+		return 1
+	}
+	return 0
 }
 
 func appendDeathPredict(results []GeneralGameState, heroName string, deathTime int) {
@@ -646,22 +661,73 @@ func appendDeathPredict(results []GeneralGameState, heroName string, deathTime i
 			if results[idx].Heroes[hIdx].HeroName == heroName {
 				hero := &results[idx].Heroes[hIdx]
 				if i <= 1 {
-					hero.IsDead1s = true
+					hero.IsDead1s = 1
 				}
 				if i <= 5 {
-					hero.IsDead5s = true
+					hero.IsDead5s = 1
 				}
 				if i <= 10 {
-					hero.IsDead10s = true
+					hero.IsDead10s = 1
 				}
 				if i <= 15 {
-					hero.IsDead15s = true
+					hero.IsDead15s = 1
 				}
 				if i <= 20 {
-					hero.IsDead20s = true
+					hero.IsDead20s = 1
 				}
 				break
 			}
 		}
 	}
+}
+
+func fetchMatchIDFromEpilogue(filePath string) int64 {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return 0
+	}
+	defer file.Close()
+
+	stat, _ := file.Stat()
+	filesize := stat.Size()
+	if filesize == 0 {
+		return 0
+	}
+
+	readSize := int64(8192)
+	if filesize < readSize {
+		readSize = filesize
+	}
+
+	buf := make([]byte, readSize)
+	_, err = file.ReadAt(buf, filesize-readSize)
+	if err != nil {
+		return 0
+	}
+
+	s := string(buf)
+
+	target := "matchId_"
+	idx := strings.LastIndex(s, target)
+	if idx == -1 {
+		return 0
+	}
+
+	start := idx + len(target)
+
+	for start < len(s) && (s[start] < '0' || s[start] > '9') {
+		start++
+	}
+
+	end := start
+	for end < len(s) && s[end] >= '0' && s[end] <= '9' {
+		end++
+	}
+
+	if start == end {
+		return 0
+	}
+
+	id, _ := strconv.ParseInt(s[start:end], 10, 64)
+	return id
 }
