@@ -123,12 +123,13 @@ func main() {
 
 	matchesDir := os.Getenv("MATCHES_DIR")
 	if matchesDir == "" {
-		matchesDir = "/data"
+		matchesDir = "/home/artem/artem/project_go/ml-in-dota/data/parser/input_json"
 	}
 
 	files, err1 := os.ReadDir(matchesDir)
 	if err1 != nil {
-		log.Fatalf("Критическая ошибка: не удалось прочитать папку %s: %v", matchesDir, err1)
+		fmt.Printf("Критическая ошибка: не удалось прочитать папку %s: %v", matchesDir, err1)
+		return
 	}
 
 	err := utils.LoadGameData(
