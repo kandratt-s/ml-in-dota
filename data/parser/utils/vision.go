@@ -193,6 +193,7 @@ func ParseVisionWorker(filePath string, myTeam int) ([]VisionEnemeyTeam, error) 
 			lastTimeInt = currentTimeInt
 		}
 	}
+
 	return result, nil
 }
 
@@ -282,14 +283,20 @@ func (gs *GameState) Update(line InputLogLine) {
 func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 	snapshot := VisionEnemeyTeam{Time: timeSec, Unit: make([]UnitVisionData, 0, 5)}
 
+	// 1. Собираем источники вижна (союзники, башни, варды)
 	var visionSources []*UnitState
 	var trueSightSources []*UnitState
 	var obsWards []*WardState
 	var towers []*UnitState
 
+	myTeamHeroes := make([]*UnitState, 0, 5)
+
 	for _, h := range gs.Heroes {
-		if h.Team == gs.MyTeam && h.IsAlive == 1 {
-			visionSources = append(visionSources, h)
+		if h.Team == gs.MyTeam {
+			myTeamHeroes = append(myTeamHeroes, h)
+			if h.IsAlive == 1 {
+				visionSources = append(visionSources, h)
+			}
 		}
 	}
 	for _, t := range gs.Towers {
@@ -309,6 +316,7 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 		}
 	}
 
+	// 2. Рассчитываем видимость врагов для НАШЕЙ команды
 	enemyHeroes := make([]*UnitState, 0, 5)
 	for _, enemy := range gs.Heroes {
 		if enemy.Team == gs.MyTeam {
@@ -321,6 +329,7 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 			visibleNow = gs.IsUnitVisible(enemy, visionSources, obsWards, trueSightSources, towers)
 		}
 
+		// Защита от потери кадров
 		if gs.CurrentTime-enemy.LastSeenTime < 0.1 {
 			visibleNow = 1
 		}
@@ -332,36 +341,35 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 		}
 	}
 
-	sort.Slice(enemyHeroes, func(i, j int) bool {
-		return enemyHeroes[i].Name < enemyHeroes[j].Name
-	})
+	// Сортируем списки, чтобы порядок слотов (и порядок генерации) был стабильным
+	sort.Slice(myTeamHeroes, func(i, j int) bool { return myTeamHeroes[i].Name < myTeamHeroes[j].Name })
+	sort.Slice(enemyHeroes, func(i, j int) bool { return enemyHeroes[i].Name < enemyHeroes[j].Name })
 
-	for _, targetEnemy := range enemyHeroes {
-		if targetEnemy.LastSeenTime <= 0 {
-			continue
-		}
+	// 3. ГЕНЕРИРУЕМ ДАННЫЕ ДЛЯ КАЖДОГО НАШЕГО СОЮЗНИКА
+	for _, ally := range myTeamHeroes {
 
+		// Базовая информация о нашем союзнике
 		data := UnitVisionData{
-			Name:                      targetEnemy.Name,
-			IsVisible:                 targetEnemy.CurrentlyVisible,
-			NearestAllyDistance:       gs.getNearestHeroDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team, 1),
-			NearestEnemyDistance:      gs.getNearestHeroDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team, 0),
-			NearestAllyTowerDistance:  gs.getNearestTowerDist(targetEnemy.X, targetEnemy.Y, targetEnemy.Team),
-			NearestEnemyTowerDistance: gs.getNearestTowerDist(targetEnemy.X, targetEnemy.Y, gs.MyTeam),
-			TimeFromLastSeen:          float32(gs.CurrentTime - targetEnemy.LastSeenTime),
+			Name:                      ally.Name,
+			IsVisible:                 1, // Союзник всегда виден самому себе
+			X:                         ally.X,
+			Y:                         ally.Y,
+			Z:                         ally.Z,
+			NearestAllyDistance:       gs.getNearestHeroDist(ally.X, ally.Y, ally.Team, 1),
+			NearestEnemyDistance:      gs.getNearestHeroDist(ally.X, ally.Y, ally.Team, 0),
+			NearestAllyTowerDistance:  gs.getNearestTowerDist(ally.X, ally.Y, ally.Team),
+			NearestEnemyTowerDistance: gs.getNearestTowerDist(ally.X, ally.Y, getEnemyTeamId(ally.Team)), // Функция-помощник
+			TimeFromLastSeen:          0,                                                                 // Для самого себя это не имеет смысла
 		}
 
-		if data.IsVisible == 1 {
-			data.X, data.Y, data.Z = targetEnemy.X, targetEnemy.Y, targetEnemy.Z
-		} else {
-			data.X, data.Y, data.Z = targetEnemy.LastSeenX, targetEnemy.LastSeenY, targetEnemy.LastSeenZ
-		}
-
+		// Функция для заполнения слотов врагами
 		fillEnemyData := func(idx int, enemy *UnitState) {
-			dist := GetDist(data.X, data.Y, enemy.LastSeenX, enemy.LastSeenY)
+			// Считаем дистанцию от НАШЕГО союзника до того места, где врага видели в последний раз
+			dist := GetDist(ally.X, ally.Y, enemy.LastSeenX, enemy.LastSeenY)
+
 			lsTime := int(gs.CurrentTime - enemy.LastSeenTime)
 			if enemy.LastSeenTime == 0 {
-				lsTime = 99999
+				lsTime = 99999 // Если врага вообще еще не видели в игре
 			}
 
 			sq := GetGridID(enemy.LastSeenX, enemy.LastSeenY)
@@ -400,15 +408,25 @@ func (gs *GameState) CalculateVisibility(timeSec int) VisionEnemeyTeam {
 			}
 		}
 
-		for i, e := range enemyHeroes {
+		// Заполняем слоты реальными врагами
+		for i, enemy := range enemyHeroes {
 			if i < 5 {
-				fillEnemyData(i, e)
+				fillEnemyData(i, enemy)
 			}
 		}
 
 		snapshot.Unit = append(snapshot.Unit, data)
 	}
+
 	return snapshot
+}
+
+// Небольшая функция-помощник для определения ID вражеской команды
+func getEnemyTeamId(myTeam int) int {
+	if myTeam == 2 {
+		return 3
+	}
+	return 2
 }
 
 func (gs *GameState) IsUnitVisible(enemy *UnitState, visionUnits []*UnitState, obsWards []*WardState, trueSight []*UnitState, towers []*UnitState) int {

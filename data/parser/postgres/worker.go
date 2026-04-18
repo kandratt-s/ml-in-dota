@@ -177,7 +177,7 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
 
 			// Определяем источник данных обзора
 			var sourceArray []utils.UnitVisionData
-			if hero.IsRadiant == 1 {
+			if hero.IsRadiant != 1 {
 				sourceArray = fm.VisionDire[i].Unit
 			} else {
 				sourceArray = fm.VisionRadiant[i].Unit
@@ -204,14 +204,12 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
 
 			// Проходим по всем героям в тике, чтобы найти врагов и их TeamSlot
 			for _, h := range genState.Heroes {
-				if h.IsRadiant != hero.IsRadiant { // Это враг
+				if h.IsRadiant != hero.IsRadiant { // что тут такое?
 					ts := (h.TeamSlot % 5) + 1 // Получаем 1, 2, 3, 4 или 5
 
 					// По умолчанию слот пустой, но если в vData есть данные для этого имени - берем их
 					e := Enemy{ID: ts, Name: h.HeroName}
 
-					// Ищем данные обзора для этого конкретного врага в нашей vData
-					// (Здесь мы используем те поля vData, которые уже есть)
 					if h.HeroName == vData.Enemy1Name {
 						e.X, e.Y, e.Sq, e.Dist, e.Time = int(vData.Enemy1LastSeenX), int(vData.Enemy1LastSeenY), vData.Enemy1LastSeenSq, vData.Enemy1LastSeenDist, int(vData.Enemy1LastSeenTime)
 					} else if h.HeroName == vData.Enemy2Name {
