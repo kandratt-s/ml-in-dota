@@ -135,7 +135,7 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
 
 	query := `
     INSERT INTO dataset.match_features (
-        account_id, match_id, game_time, is_day, is_radiant, radiant_score, dire_score,
+        match_id, game_time, is_day, is_radiant, radiant_score, dire_score,
         hero_id, level, kills, deaths, assists, last_hits, denies,
         gold, net_worth, x, y, square, xp, health, mana, max_health, max_mana,
         agility, intellect, strength, magical_resistance, armor, movespeed, bkb_cooldown,
@@ -159,7 +159,7 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
         $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60,
         $61, $62, $63, $64, $65, $66, $67, $68, $69, $70, $71, $72, $73, $74, $75, $76, $77, $78, $79, $80,
         $81, $82, $83, $84, $85, $86, $87, $88, $89, $90, $91, $92, $93, $94, $95, $96, $97, $98, $99, $100,
-        $101, $102, $103, $104, $105, $106
+        $101, $102, $103, $104, $105
     )`
 
 	stmt, err := tx.Prepare(query)
@@ -226,7 +226,7 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
 			}
 
 			_, err = stmt.Exec(
-				0, genState.MatchID, int(genState.GameTime), genState.IsDaytime, hero.IsRadiant, genState.RadiantScore, genState.DireScore,
+				genState.MatchID, int(genState.GameTime), genState.IsDaytime, hero.IsRadiant, genState.RadiantScore, genState.DireScore,
 				hero.HeroID, hero.Level, hero.Kills, hero.Deaths, hero.Assists, hero.LastHits, hero.Denies,
 				hero.Gold, hero.Networth, int(hero.X), int(hero.Y), int(hero.Square), int(hero.XP), int(hero.Health), int(hero.Mana), int(hero.MaxHealth), int(hero.MaxMana),
 				int(hero.Agility), int(hero.Intellect), int(hero.Strength), int(hero.MagicResist), int(hero.Armor), int(hero.MoveSpeed), int(hero.BKBcooldown),

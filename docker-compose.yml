@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16
+    ports:
+      - "5432:5432" # я прокинул порты для удобства, можно удолить потом. 
     restart: always
     env_file:
       - .env

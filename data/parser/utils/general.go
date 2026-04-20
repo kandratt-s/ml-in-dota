@@ -21,7 +21,7 @@ var ConsumableItems = map[string]int{
 	"dust": 1, "tpscroll": 1, "cheese": 1, "refresher_shard": 1, "aegis": 1,
 }
 
-const BKBTotalCooldown = 90.0
+const BKBTotalCooldown = 95.0
 
 type HeroStatsDefinition struct {
 	ID          int     `json:"id"`
@@ -572,6 +572,8 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 
 			teamSlot := (line.Slot % 5) + 1
 
+			X, Y := ToWorld(line.X), ToWorld(line.Y)
+
 			heroData := HeroGeneralData{
 				HeroName:    heroName,
 				HeroID:      line.HeroID,
@@ -585,9 +587,9 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 				Denies:      line.Denies,
 				Gold:        line.Gold,
 				XP:          line.XP,
-				X:           line.X,
-				Y:           line.Y,
-				Square:      GetGridID(line.X, line.Y),
+				X:           X,
+				Y:           Y,
+				Square:      GetGridID(X, Y),
 				Health:      stats.Health,
 				MaxHealth:   stats.MaxHealth,
 				Mana:        stats.Mana,

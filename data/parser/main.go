@@ -104,7 +104,7 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 }
 
 func main() {
-	dbURL := os.Getenv("DB_URL")
+	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://app:appass@localhost:5432/app_db?sslmode=disable"
 	}

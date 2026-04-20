@@ -4,7 +4,6 @@ CREATE TABLE train.dataset(
     id BIGSERIAL PRIMARY KEY,
 
     -- game info
-    account_id BIGINT,
     match_id BIGINT,
     game_time INT,
 
@@ -139,7 +138,7 @@ CREATE TABLE train.dataset(
     dead_in_5 BOOLEAN,
     dead_in_10 BOOLEAN,
     dead_in_15 BOOLEAN,
-    dead_in_20 BOOLEAN,
+    dead_in_20 BOOLEAN
 );
 
 ALTER ROLE app SET search_path TO train, public;
