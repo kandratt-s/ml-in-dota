@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS dataset.match_features (
     id BIGSERIAL PRIMARY KEY,
 
     -- game info
-    account_id BIGINT,
     match_id BIGINT,
     game_time INT,
 
