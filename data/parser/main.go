@@ -15,18 +15,25 @@ import (
 
 func workerParse(id int, jobs <-chan string, dbChan chan<- postgres.FullMatch, wq *sync.WaitGroup) {
 	for filePath := range jobs {
+		func() {
+			defer wq.Done()
 
-		fmt.Println("воркер ", id, "взял задачу")
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("Воркер %d поймал панику на файле %s: %v", id, filePath, r)
+				}
+			}()
 
-		fm, err := makeOneMatch(filePath)
+			fmt.Println("воркер ", id, "взял задачу")
 
-		if err != nil {
-			fmt.Print("ne poluchilos u make one match main26")
-		} else {
-			dbChan <- fm
-		}
+			fm, err := makeOneMatch(filePath)
 
-		wq.Done()
+			if err != nil {
+				fmt.Print("ne poluchilos u make one match main26")
+			} else {
+				dbChan <- fm
+			}
+		}()
 	}
 }
 
@@ -42,6 +49,11 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 
 	go func() {
 		defer wgParse.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				errChan <- fmt.Errorf("panic inside gorutine1")
+			}
+		}()
 		data, err := utils.ParseVisionWorker(filePath, 3) // 2-radiant
 		if err != nil {
 			errChan <- err
@@ -52,6 +64,11 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 
 	go func() {
 		defer wgParse.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				errChan <- fmt.Errorf("panic inside gorutine2")
+			}
+		}()
 		data, err := utils.ParseGeneralWorker(filePath)
 		if err != nil {
 			errChan <- err
@@ -62,6 +79,11 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 
 	go func() {
 		defer wgParse.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				errChan <- fmt.Errorf("panic inside gorutine3")
+			}
+		}()
 		data, err := utils.ParseVisionWorker(filePath, 2) // 3 - dire
 		if err != nil {
 			errChan <- err
@@ -80,7 +102,7 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 
 	for err := range errChan {
 		if err != nil {
-			log.Printf("Ошибка в матче %s: %v", filePath, err)
+			log.Printf("Ошибка в матче %s: %v\n", filePath, err)
 			return postgres.FullMatch{}, err
 		}
 	}
@@ -93,6 +115,11 @@ func makeOneMatch(filePath string) (postgres.FullMatch, error) {
 	// utils.TestBKBcooldown(generalData)
 	// fmt.Println(len(generalData))
 	// utils.TestCompatibility(generalData, visionDataDire)
+
+	if len(generalData) == 0 || len(visionDataRadiant) == 0 || len(visionDataDire) == 0 {
+		log.Printf("ошибка в длине данных\n")
+		return postgres.FullMatch{}, fmt.Errorf("ошибка в длине данных")
+	}
 
 	return postgres.FullMatch{
 		MatchId:       generalData[0].MatchID,

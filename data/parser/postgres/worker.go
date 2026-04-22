@@ -15,7 +15,6 @@ type FullMatch struct {
 	VisionRadiant []utils.VisionEnemeyTeam
 }
 
-// Вспомогательная структура для хранения "кандидатов" на сохранение
 type Candidate struct {
 	TickIndex int
 	HeroName  string
@@ -236,7 +235,6 @@ func saveMatch(db *sql.DB, fm FullMatch) error {
 				hero.Ability4Level, int(hero.Ability4CastRange), int(hero.Ability4ManaCost), int(hero.Ability4Cooldown),
 				int(vData.NearestAllyTowerDistance), int(vData.NearestEnemyTowerDistance),
 
-				// Враги, жестко привязанные к ключам мапы slots (которые суть 1..5)
 				slots[1].ID, slots[1].Name, slots[1].X, slots[1].Y, slots[1].Sq, int(slots[1].Dist), slots[1].Time,
 				slots[2].ID, slots[2].Name, slots[2].X, slots[2].Y, slots[2].Sq, int(slots[2].Dist), slots[2].Time,
 				slots[3].ID, slots[3].Name, slots[3].X, slots[3].Y, slots[3].Sq, int(slots[3].Dist), slots[3].Time,
