@@ -572,7 +572,7 @@ func ParseGeneralWorker(filePath string) ([]GeneralGameState, error) {
 
 			teamSlot := (line.Slot % 5) + 1
 
-			X, Y := ToWorld(line.X), ToWorld(line.Y)
+			X, Y := ToWorld(line.X, line.Y)
 
 			heroData := HeroGeneralData{
 				HeroName:    heroName,

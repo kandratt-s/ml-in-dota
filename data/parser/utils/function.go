@@ -68,15 +68,26 @@ func GetGridID(x, y float32) int {
 }
 
 func getTreeGridIdx(x, y float32) int {
-	MapMin := float32(-8000.0)
-	GridSize := float32(512.0)
-	cols := int((8000.0-(-8000.0))/GridSize) + 1
-	gx := int((x - MapMin) / GridSize)
-	gy := int((y - MapMin) / GridSize)
-	return gx*cols + gy
+	treeGridCellSize := float32(512.0)
+	gx := int((x - GridXMin) / treeGridCellSize)
+	gy := int((y - GridYMin) / treeGridCellSize)
+	gridHeightCells := int((GridYMax - GridYMin) / treeGridCellSize)
+	rows := gridHeightCells + 1
+	return gx*rows + gy
 }
 
-func ToWorld(val float32) float32 { return (val - CoordOffset) * CoordScale }
+// func ToWorld(val float32) float32 { return (val - CoordOffset) * CoordScale }
+func ToWorld(x, y float32) (float32, float32) {
+	worldX := GridXMin + (x / float32(GridScale)) * (GridXMax - GridXMin) - (GridXMax - GridXMin) / 2.0
+	worldY := GridYMin + (y / float32(GridScale)) * (GridYMax - GridYMin) - (GridYMax - GridYMin) / 2.0
+
+	return worldX, worldY
+}
+
+// def to_world(x, y, W=1024, H=1024):
+//     wx = XMIN + (x / W) * (XMAX - XMIN)  ТРУШНЫЙ ПЕРЕВОД В ВОРЛД КООРДИНАТ
+//     wy = YMIN + (y / H) * (YMAX - YMIN)
+//     return wx, wy
 
 func GetDistSq(x1, y1, x2, y2 float32) float32 {
 	return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)
