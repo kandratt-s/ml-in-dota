@@ -18,6 +18,6 @@ COPY --from=builder /app/dotadata ./dotadata
 # Создаем точку монтирования
 RUN mkdir /data
 ENV MATCHES_DIR=/data
-ENV DB_URL="postgres://app:appass@localhost:5432/app_db?sslmode=disable"
+ENV DATABASE_URL="postgresql://app:appass@postgres:5432/app_db"
 # Важно: ENTRYPOINT лучше, чем CMD для таких задач
 ENTRYPOINT ["./dota-parser"]

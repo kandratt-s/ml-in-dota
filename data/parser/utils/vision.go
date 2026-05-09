@@ -26,6 +26,7 @@ const (
 	GridXMax  float32 = 8000.0
 	GridYMin  float32 = -8500.0
 	GridYMax  float32 = 8500.0
+	GridScale int     = 128
 	GridCells int     = 32
 )
 
@@ -220,7 +221,8 @@ func (gs *GameState) Update(line InputLogLine) {
 				hero = &UnitState{Name: name, Team: team, Modifiers: make(map[string]int)}
 				gs.Heroes[name] = hero
 			}
-			hero.X, hero.Y, hero.Z = ToWorld(line.X), ToWorld(line.Y), line.Z
+			hero.X, hero.Y = ToWorld(line.X, line.Y)
+			hero.Z = line.Z
 			if line.LifeState == 0 {
 				hero.IsAlive = 1
 			} else {
@@ -241,8 +243,9 @@ func (gs *GameState) Update(line InputLogLine) {
 		if line.Type == "obs" {
 			isObs = 1
 		}
+		wx, wy := ToWorld(line.X, line.Y)
 		gs.ActiveWards = append(gs.ActiveWards, &WardState{
-			Ehandle: line.Ehandle, Team: team, X: ToWorld(line.X), Y: ToWorld(line.Y),
+			Ehandle: line.Ehandle, Team: team, X: wx, Y: wy,
 			Z: line.Z, IsObserver: isObs, EndTime: line.Time + 360.0,
 		})
 
@@ -261,7 +264,8 @@ func (gs *GameState) Update(line InputLogLine) {
 				}
 
 				if revealed == 1 {
-					attacker.X, attacker.Y, attacker.Z = ToWorld(line.X), ToWorld(line.Y), line.Z
+					attacker.X, attacker.Y = ToWorld(line.X, line.Y)
+					attacker.Z = line.Z
 					attacker.LastSeenTime = line.Time
 					attacker.LastSeenX, attacker.LastSeenY, attacker.LastSeenZ = attacker.X, attacker.Y, attacker.Z
 				}
@@ -486,15 +490,17 @@ func (gs *GameState) IsPathBlockedByTrees(x1, y1, x2, y2 float32) int {
 	minX, maxX := minF(x1, x2)-TreeBlockRadius, maxF(x1, x2)+TreeBlockRadius
 	minY, maxY := minF(y1, y2)-TreeBlockRadius, maxF(y1, y2)+TreeBlockRadius
 
-	startGX := int((minX - (-8000.0)) / 512.0)
-	endGX := int((maxX - (-8000.0)) / 512.0)
-	startGY := int((minY - (-8000.0)) / 512.0)
-	endGY := int((maxY - (-8000.0)) / 512.0)
-	cols := int(16000/512) + 1
+	treeGridCellSize := float32(512.0)
+	startGX := int((minX - GridXMin) / treeGridCellSize)
+	endGX := int((maxX - GridXMin) / treeGridCellSize)
+	startGY := int((minY - GridYMin) / treeGridCellSize)
+	endGY := int((maxY - GridYMin) / treeGridCellSize)
+	gridHeightCells := int((GridYMax - GridYMin) / treeGridCellSize)
+	rows := gridHeightCells + 1
 
 	for gx := startGX; gx <= endGX; gx++ {
 		for gy := startGY; gy <= endGY; gy++ {
-			idx := gx*cols + gy
+			idx := gx*rows + gy
 			if trees, ok := gs.TreeGrid[idx]; ok {
 				for _, tree := range trees {
 					if isPointNearSegment(tree.X, tree.Y, x1, y1, x2, y2, TreeBlockRadius) == 1 {
