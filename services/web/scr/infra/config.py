@@ -2,7 +2,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    AUTH_BASE_URL: str = "http://localhost:8001/api/v1"
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str | None = None
+
     REQUEST_TIMEOUT_SECONDS: float = 10.0
 
     MAP_PATH: str = "assets/600px-Gamemap_7.40_minimap_dota2_gameasset.png"

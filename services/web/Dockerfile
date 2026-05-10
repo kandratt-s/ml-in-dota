@@ -1,23 +1,21 @@
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir uv==0.10.9
+WORKDIR /app
 
 RUN useradd -m appuser
 
-WORKDIR /app
+COPY services/web/pyproject.toml ./
+RUN touch README.md
 
-COPY pyproject.toml uv.lock ./
-COPY services/web/pyproject.toml ./services/web/
+RUN pip install --no-cache-dir streamlit redis plotly pydantic-settings Pillow
 
-RUN uv sync --package web --no-dev --frozen
-
-COPY services/web/ ./services/web/
-
-ENV PATH="/app/.venv/bin:$PATH"
+COPY services/web/ ./
 
 RUN chown -R appuser:appuser /app
 USER appuser
 
-WORKDIR /app/services/web
+ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+EXPOSE 8501
+
+CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0"]
