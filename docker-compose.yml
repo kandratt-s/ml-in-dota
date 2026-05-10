@@ -23,7 +23,7 @@ services:
     image: redis:7-alpine
     restart: always
     # ports:
-    #   - "6379:6379"
+    #  - "6379:6379"
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
@@ -34,40 +34,6 @@ services:
       retries: 5
     networks:
       - app_network
-
-  # bot:
-  #   build:
-  #     context: .  # Важно: контекст - КОРЕНЬ проекта, не services/bot!
-  #     dockerfile: services/bot/Dockerfile
-  #   restart: always
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-  #   networks:
-  #     - app_network
-
-  auth:
-    build:
-      context: .
-      dockerfile: services/auth/Dockerfile
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    env_file:
-      - .env
-    networks:
-      - app_network
-    ports:
-      - 8001:8001
 
   # gsi_processor:
   #   build:
@@ -89,9 +55,6 @@ services:
       context: .
       dockerfile: services/web/Dockerfile
     restart: always
-    depends_on:
-      auth:
-        condition: service_started
     env_file:
       - .env
     environment:
