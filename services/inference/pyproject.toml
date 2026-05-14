@@ -1,0 +1,19 @@
+[project]
+name = "inference"
+version = "0.1.0"
+description = "Production-like inference worker for Dota 2 death probability prediction"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.136.1",
+    "catboost>=1.2.8",
+    "redis>=5.2.1",
+    "scikit-learn>=1.6.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "uvicorn>=0.34.0",
+    "joblib>=1.5.3",
+]
+
+[project.scripts]
+inference = "main:main"

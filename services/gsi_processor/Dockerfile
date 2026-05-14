@@ -32,11 +32,15 @@ RUN uv sync --package gsi_processor --no-dev --frozen
 
 COPY services/gsi_processor/ ./services/gsi_processor/
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    GSI_PROCESSOR_PORT=8001
 
 RUN chown -R appuser:appuser /app
 USER appuser
 
 WORKDIR /app/services/gsi_processor
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8001
+
+# Use GSI_PROCESSOR_PORT environment variable for port configuration
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${GSI_PROCESSOR_PORT:-8001}"]

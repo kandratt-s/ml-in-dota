@@ -1,6 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS train;
+CREATE SCHEMA IF NOT EXISTS dataset;
 
-CREATE TABLE train.dataset(
+CREATE TABLE dataset.match_features(
     id BIGSERIAL PRIMARY KEY,
 
     -- game info
@@ -141,4 +141,4 @@ CREATE TABLE train.dataset(
     dead_in_20 BOOLEAN
 );
 
-ALTER ROLE app SET search_path TO train, public;
+ALTER ROLE app SET search_path TO dataset, public;

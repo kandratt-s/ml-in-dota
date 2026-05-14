@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Request
 
-from scr.services.process import GSIProcessorService
 from scr.schemas.dota_output import GameStateRequest
-from scr.api.dependencies import get_GSI_service
 from scr.schemas.dota_input import GSIRequest
 
 router = APIRouter(prefix="/gsi-input", tags=["gsi-input"])
 
-@router.post("")
-async def process_gsi_data(data: GSIRequest, service: GSIProcessorService = Depends(get_GSI_service)) -> GameStateRequest:
-    # await service.process_gsi_data(data)
-    # return Response(status_code=200)
+@router.post("", response_model=GameStateRequest)
+async def process_gsi_data(data: GSIRequest, request: Request) -> GameStateRequest:
+    service = request.app.state.GSI_processor_service
     return await service.process_gsi_data(data)
+
+@router.post("/test")
+async def test_process(data, request: Request):
+    _ = request.app.state.GSI_processor_service
+    print(data)
+    return None
