@@ -3,8 +3,8 @@ from pydantic import BaseModel, Field, AliasPath
 
 class GameStateRequest(BaseModel):
     # game info
-    account_id: int
-    match_id: int
+    # account_id: int
+    # match_id: int
     game_time: int
 
     is_day: bool
@@ -49,25 +49,25 @@ class GameStateRequest(BaseModel):
     movespeed: int
 
     # abilities
-    level0: int 
-    castrange0: int 
-    manacost0: int 
-    cooldown0: int 
+    ability1_level: int = 0
+    ability1_castrange: int = 0
+    ability1_manacost: int = 0
+    ability1_cooldown: int = 0
 
-    level1: int 
-    castrange1: int 
-    manacost1: int 
-    cooldown1: int 
+    ability2_level: int = 0
+    ability2_castrange: int = 0
+    ability2_manacost: int = 0
+    ability2_cooldown: int = 0
 
-    level2: int 
-    castrange2: int 
-    manacost2: int
-    cooldown2: int
+    ability3_level: int = 0
+    ability3_castrange: int = 0
+    ability3_manacost: int = 0
+    ability3_cooldown: int = 0
 
-    level3: int
-    castrange3: int
-    manacost3: int
-    cooldown3: int
+    ability4_level: int = 0
+    ability4_castrange: int = 0
+    ability4_manacost: int = 0
+    ability4_cooldown: int = 0
 
 
     # distances
@@ -78,35 +78,41 @@ class GameStateRequest(BaseModel):
     nearest_ally_tower_distance: int
     nearest_enemy_tower_distance: int
 
+    enemy_1_name: int = 0
     enemy_1_last_seen_x: int
     enemy_1_last_seen_y: int
-    enemy_1_last_seen_square: int
+    enemy_1_last_seen_sqare: int
     enemy_1_last_seen_distance: int
     enemy_1_last_seen_time: int
 
+    enemy_2_name: int = 0
     enemy_2_last_seen_x: int
     enemy_2_last_seen_y: int
-    enemy_2_last_seen_square: int
+    enemy_2_last_seen_sqare: int
     enemy_2_last_seen_distance: int
     enemy_2_last_seen_time: int
 
+    enemy_3_name: int = 0
     enemy_3_last_seen_x: int
     enemy_3_last_seen_y: int
-    enemy_3_last_seen_square: int
+    enemy_3_last_seen_sqare: int
     enemy_3_last_seen_distance: int
     enemy_3_last_seen_time: int
 
+    enemy_4_name: int = 0
     enemy_4_last_seen_x: int
     enemy_4_last_seen_y: int
-    enemy_4_last_seen_square: int
+    enemy_4_last_seen_sqare: int
     enemy_4_last_seen_distance: int
     enemy_4_last_seen_time: int
 
+    enemy_5_name: int = 0
     enemy_5_last_seen_x: int
     enemy_5_last_seen_y: int
-    enemy_5_last_seen_square: int
+    enemy_5_last_seen_sqare: int
     enemy_5_last_seen_distance: int
     enemy_5_last_seen_time: int
+
 
     # items
     item_black_king_bar: bool
@@ -136,7 +142,7 @@ class AbilitySnapshot(BaseModel):
 
 
 class EnemySnapshot(BaseModel):
-    name: str = ""
+    name: int = 0
     x: int = 0
     y: int = 0
     square: int = 0

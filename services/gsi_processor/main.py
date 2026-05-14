@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 from scr.infra.catalog import JsonCatalog
-from scr.infra.redis import ActiveTokensRepository, EnemyStateRepository, RedisClient
+from scr.infra.redis import ActiveTokensRepository, EnemyStateRepository, InferenceQueueRepository, SnapshotStateRepository, RedisClient
 from scr.services.process import GSIProcessorService
 from scr.api import router
 from scr.infra.config import settings
@@ -19,13 +19,20 @@ async def lifespan(app: FastAPI):
 
     app.state.enemy_state_repository = EnemyStateRepository(client=app.state.redis)
     app.state.active_tokens_repository = ActiveTokensRepository(client=app.state.redis)
+    app.state.inference_queue_repository = InferenceQueueRepository(
+        client=app.state.redis,
+        queue_name=settings.INFERENCE_INPUT_QUEUE,
+    )
+    app.state.snapshot_state_repository = SnapshotStateRepository(client=app.state.redis)
 
     app.state.GSI_processor_service = GSIProcessorService(
         abilities_catalog=app.state.abilities_catalog,
         hero_stats_catalog=app.state.hero_stats_catalog,
         items_catalog=app.state.items_catalog,
         enemy_state_repo=app.state.enemy_state_repository,
-        active_token_repo=app.state.active_tokens_repository
+        active_token_repo=app.state.active_tokens_repository,
+        inference_queue_repo=app.state.inference_queue_repository,
+        snapshot_state_repo=app.state.snapshot_state_repository,
     )
 
     yield

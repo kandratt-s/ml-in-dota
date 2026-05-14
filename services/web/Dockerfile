@@ -7,7 +7,7 @@ RUN useradd -m appuser
 COPY services/web/pyproject.toml ./
 RUN touch README.md
 
-RUN pip install --no-cache-dir streamlit redis plotly pydantic-settings Pillow
+RUN pip install --no-cache-dir streamlit redis plotly pydantic-settings Pillow httpx
 
 COPY services/web/ ./
 

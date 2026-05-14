@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     REDIS_PORT: int
     REDIS_PASSWORD: SecretStr
 
+    INFERENCE_INPUT_QUEUE: str = "inference:input"
+
     @property
     def redis_url(self) -> str:
         return f"redis://:{self.REDIS_PASSWORD.get_secret_value()}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
@@ -24,7 +26,7 @@ class Settings(BaseSettings):
     BASE_DIR: Path = Path(__file__).resolve().parents[2]
     LOCAL_DATA: Path = BASE_DIR / "local_data"
     ITEMS_JSON: Path = LOCAL_DATA / "items.json"
-    HERO_STATS_JSON: Path = LOCAL_DATA / "heroStats.json"
+    HERO_STATS_JSON: Path = LOCAL_DATA / "heroes.json"
     ABILITIES_JSON: Path = LOCAL_DATA / "abilities.json"
 
     model_config = SettingsConfigDict(

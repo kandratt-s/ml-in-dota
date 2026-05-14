@@ -188,3 +188,5 @@ tests
 .vscode/
 *.jsonl
 
+
+data/*.csv
