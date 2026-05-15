@@ -1,8 +1,7 @@
 from typing import Any
 
 from scr.schemas.dota_input import Ability, GSIRequest, Item, MinimapObject
-from scr.infra.redis import EnemyStateRepository, ActiveTokensRepository, InferenceQueueRepository, SnapshotStateRepository
-from scr.infra.config import settings
+from scr.infra.redis import ActiveTokensRepository, InferenceQueueRepository, SnapshotStateRepository 
 from scr.infra.catalog import JsonCatalog
 from scr.schemas.dota_output import EnemySnapshot, GameStateRequest, HeroStatsSnapshot, CalculatedFeatures, AbilitySnapshot
 from scr.infra.formulas import cell_id, euclidean_distance
@@ -17,26 +16,26 @@ class GSIProcessorService:
         self,
         abilities_catalog: JsonCatalog,
         hero_stats_catalog: JsonCatalog,
+        hero_names_catalog: JsonCatalog,
         items_catalog: JsonCatalog,
-        enemy_state_repo: EnemyStateRepository,
         active_token_repo: ActiveTokensRepository,
         inference_queue_repo: InferenceQueueRepository,
         snapshot_state_repo: SnapshotStateRepository,
     ) -> None:
         self.abilities_catalog = abilities_catalog
         self.hero_stats_catalog = hero_stats_catalog
+        self.hero_names_catalog = hero_names_catalog
         self.items_catalog = items_catalog
-        self.enemy_state_repo = enemy_state_repo
         self.active_token_repo = active_token_repo
         self.inference_queue_repo = inference_queue_repo
         self.snapshot_state_repo = snapshot_state_repo
+
 
     async def process_gsi_data(self, data: GSIRequest) -> GameStateRequest:
         token = data.auth.token
         if not await self.active_token_repo.is_active(token):
             raise PermissionError("Token is not active")
 
-        # Load previous snapshot (n-1) for comparison with current state (n)
         previous_snapshot = await self.snapshot_state_repo.get_previous_snapshot(token)
 
         is_radiant = self._is_radiant(data.player.team_name)
@@ -45,8 +44,7 @@ class GSIProcessorService:
 
         hero_stats = self._get_character_stats(data.hero.id, data.hero.level, data.items)
         abilities = self._get_abilities_stats(data.abilities)
-        enemies = await self.build_enemy_snapshots(
-            token=token,
+        enemies = self._build_enemy_snapshots(
             minimap_info=data.minimap,
             is_radiant=is_radiant,
             hero_x=x,
@@ -73,27 +71,6 @@ class GSIProcessorService:
             abilities=abilities,
             enemies=enemies,
             save_items=self._get_bool_items(data.items),
-        )
-
-        # TODO: Add delta/comparison features based on previous_snapshot
-        # previous_snapshot contains the (n-1) state for this token
-        # Use it to compute features that require state comparison:
-        # - Position delta (movement distance, direction)
-        # - Health/mana changes
-        # - Level/gold changes
-        # - Item/ability changes
-        # - Enemy distance changes
-        # Example:
-        #   if previous_snapshot:
-        #       prev_x = previous_snapshot.get("x")
-        #       prev_y = previous_snapshot.get("y")
-        #       movement_distance = euclidean_distance(x, y, prev_x, prev_y)
-        #       # Add computed delta features to payload below
-        delta_features = await self._compute_delta_features(
-            current_state=data,
-            current_features=features,
-            previous_snapshot=previous_snapshot,
-            token=token,
         )
 
         # в плоскость для модели
@@ -136,18 +113,18 @@ class GSIProcessorService:
         payload.update(self._pack_abilities(features.abilities))
         payload.update(self._pack_enemies(features.enemies))
         payload.update(self._pack_items(features.save_items))
-        # Include delta features computed from previous snapshot
-        #payload.update(delta_features)
+
 
         game_state = GameStateRequest.model_validate(payload)
+
+
 
         record_id = f"{payload['match_id']}:{payload['account_id']}:{game_state.game_time}"
         await self.inference_queue_repo.enqueue_request(
             InferenceRecord(record_id=record_id, payload=game_state.model_dump(mode="json"))
         )
 
-        # Save current state as snapshot for next GSI event (becomes n-1)
-        # Store only enemy positions keyed by hero name
+
         enemies_dict: dict[str, EnemyPositionSnapshot] = {
             str(enemy.name): EnemyPositionSnapshot(
                 enemy_last_seen_time=enemy.time,
@@ -161,6 +138,8 @@ class GSIProcessorService:
         await self.snapshot_state_repo.save_current_snapshot(token, current_snapshot)
 
         return game_state
+
+
 
     def _pack_abilities(self, abilities: list[AbilitySnapshot]) -> dict[str, int]:
         payload: dict[str, int] = {}
@@ -203,69 +182,6 @@ class GSIProcessorService:
         ]
         return {key: save_items[idx] for idx, key in enumerate(item_keys)}
 
-    async def _compute_delta_features(
-        self,
-        current_state: GSIRequest,
-        current_features: CalculatedFeatures,
-        previous_snapshot: SnapshotState | None,
-        token: str,
-    ) -> dict[str, Any]:
-        """
-        Compute features that require comparison with previous snapshot.
-        
-        This method computes delta/change-based features by comparing the current
-        GSI state (n) with the previous snapshot (n-1) stored in Redis.
-        
-        Args:
-            current_state: Current GSI data (n)
-            current_features: Computed features for current state
-            previous_snapshot: Previous state snapshot (n-1) or None if first event
-            token: Player session token
-            
-        Returns:
-            Dictionary of delta features to add to the payload
-            
-        TODO: Fill in the logic for computing delta features
-        Examples:
-            - Movement speed (distance traveled in time delta)
-            - Health/mana changes
-            - Level/gold/XP gains
-            - Kill/death/assist changes
-            - Item purchases/removals
-            - Ability cooldown changes
-            - Enemy position changes
-            - Combat engagement (health loss, item usage)
-        """
-        delta_features: dict[str, Any] = {}
-        
-        if previous_snapshot is None:
-            # First event - no previous state to compare
-            # TODO: Set sensible defaults for first event (all deltas = 0)
-            pass
-        else:
-
-            
-
-            # TODO: Implement delta feature computation
-            # Note: previous_snapshot only contains enemy position data (enemies: dict[int, EnemyPositionSnapshot])
-            # Can compute features for enemy position changes:
-            # Example structure:
-            # prev_enemies = previous_snapshot.enemies  # dict[int, EnemyPositionSnapshot]
-            # current_enemies = current_features.enemies  # list[EnemySnapshot]
-            # 
-            # for enemy_id, prev_enemy_data in prev_enemies.items():
-            #     if enemy_id < len(current_enemies):
-            #         curr_enemy = current_enemies[enemy_id]
-            #         enemy_position_change = euclidean_distance(
-            #             curr_enemy.x, curr_enemy.y,
-            #             prev_enemy_data.enemy_last_seen_x, prev_enemy_data.enemy_last_seen_y
-            #         )
-            #         delta_features[f"enemy_{enemy_id}_position_change"] = enemy_position_change
-            # 
-            # ... add more delta features based on current state comparisons
-            pass
-        
-        return delta_features
 
     def _get_abilities_stats(self, abilities: dict[str, Ability]) -> list[AbilitySnapshot]:
         abilities_catalog: dict[str, dict[str, Any]] = self.abilities_catalog.as_dict()
@@ -542,29 +458,24 @@ class GSIProcessorService:
                 enemies[obj.unitname] = (obj.xpos, obj.ypos)
                 if len(enemies) == 5:
                     break
+        
 
         return enemies
 
-    async def build_enemy_snapshots(
+    def _build_enemy_snapshots(
         self,
-        token: str,
         minimap_info: dict[int, MinimapObject],
         is_radiant: bool,
         hero_x: int,
         hero_y: int,
         previous_snapshot: SnapshotState | None = None,
     ) -> list[EnemySnapshot]:
-        """
-        Build enemy snapshots using n-1 (previous) snapshot to track enemy visibility.
-        
-        Logic:
-        - If enemy is visible in minimap_info: use position from minimap, set time=0
-        - If enemy is not visible but was in previous_snapshot: use previous position, increment time
-        """
+
+        hero_names = self.hero_names_catalog.as_dict()
         visible = self._extract_visible_enemies(minimap_info, is_radiant)
-        
+
         # Start with visible enemies (all have time=0, fresh position)
-        merged_positions: dict[str, tuple[int, int]] = dict(visible)
+        merged_positions: dict[str, tuple[int, int]] = {str(hero_names.get(enemy, 0)): value for enemy, value in visible.items()}
         merged_last_seen: dict[str, int] = {enemy: 0 for enemy in visible}
         
         # Merge with previous_snapshot enemies (not currently visible)
@@ -575,6 +486,8 @@ class GSIProcessorService:
                     merged_positions[enemy_name] = (enemy_data.enemy_last_seen_x, enemy_data.enemy_last_seen_y)
                     merged_last_seen[enemy_name] = enemy_data.enemy_last_seen_time + 1
         
+
+
         # Calculate distances for sorting
         distances: dict[str, int] = {
             enemy: euclidean_distance(hero_x, hero_y, coords[0], coords[1])
@@ -584,9 +497,6 @@ class GSIProcessorService:
         # Sort by distance and take 5 closest
         sorted_enemies = sorted(merged_positions.keys(), key=lambda e: distances[e])
         
-        BASE_DIR = Path(__file__).resolve().parent / "heroNames.json"
-        with open(BASE_DIR, "r") as f:
-            hero_names = json.load(f)
 
         # Build EnemySnapshot list
         snapshots: list[EnemySnapshot] = []
@@ -594,7 +504,7 @@ class GSIProcessorService:
             x, y = merged_positions[enemy]
             snapshots.append(
                 EnemySnapshot(
-                    name=hero_names.get(enemy, 0),
+                    name=int(hero_names.get(enemy, enemy)),
                     x=x,
                     y=y,
                     square=cell_id(x, y),
@@ -606,12 +516,5 @@ class GSIProcessorService:
         # Pad to 5 enemies with empty snapshots
         while len(snapshots) < 5:
             snapshots.append(EnemySnapshot())
-        
-        # Update Redis state (for backward compatibility with old code if needed)
-        # Avoid calling hset with empty mappings (Redis raises DataError)
-        if merged_positions:
-            await self.enemy_state_repo.write_enemy_positions(token, merged_positions)
-        if merged_last_seen:
-            await self.enemy_state_repo.write_last_seen(token, merged_last_seen)
-        
+
         return snapshots

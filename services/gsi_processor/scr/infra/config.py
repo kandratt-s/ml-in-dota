@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ITEMS_JSON: Path = LOCAL_DATA / "items.json"
     HERO_STATS_JSON: Path = LOCAL_DATA / "heroes.json"
     ABILITIES_JSON: Path = LOCAL_DATA / "abilities.json"
+    HERO_NAMES_JSON: Path = LOCAL_DATA / "heroNames.json"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,46 +1,23 @@
-# FROM python:3.12-slim
-
-# RUN pip install --no-cache-dir uv==0.10.9
-
-# WORKDIR /app
-
-# COPY pyproject.toml uv.lock ./
-
-# COPY services/gsi_processor/pyproject.toml ./services/gsi_processor/
-
-# RUN uv sync --package gsi_processor --no-dev --frozen
-
-# COPY services/gsi_processor/ ./services/gsi_processor/
-
-# WORKDIR /app/services/gsi_processor
-
-# CMD ["python", "main.py"]
-
-
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir uv==0.10.9
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 RUN useradd -m appuser
-
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 COPY services/gsi_processor/pyproject.toml ./services/gsi_processor/
 
-RUN uv sync --package gsi_processor --no-dev --frozen
+RUN uv sync --package gsi_processor --no-dev --frozen && \
+    chown -R appuser:appuser /app
+    
+COPY --chown=appuser:appuser services/gsi_processor/ ./services/gsi_processor/
 
-COPY services/gsi_processor/ ./services/gsi_processor/
-
-ENV PATH="/app/.venv/bin:$PATH" \
-    GSI_PROCESSOR_PORT=8001
-
-RUN chown -R appuser:appuser /app
 USER appuser
-
 WORKDIR /app/services/gsi_processor
 
-EXPOSE 8001
 
-# Use GSI_PROCESSOR_PORT environment variable for port configuration
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${GSI_PROCESSOR_PORT:-8001}"]
+CMD ["sh", "-c", "uv run uvicorn main:app --host 0.0.0.0 --port ${GSI_PROCESSOR_PORT:-8001}"]

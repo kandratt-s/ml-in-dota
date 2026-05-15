@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Union
+from typing import Union
 import json
 
 JSONType = Union[dict, list]
