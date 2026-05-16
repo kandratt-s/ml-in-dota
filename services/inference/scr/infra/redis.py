@@ -8,6 +8,7 @@ from typing import Any, Iterable, Sequence
 from redis.asyncio import Redis
 
 from scr.schemas.inference_request import InferenceRecord, InferenceResult, InferenceStreamMessage
+from scr.schemas.prediction_config import PredictionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -162,3 +163,27 @@ class InferenceRedisRepository:
 
 	async def set_heatmap(self, heatmap_key: str, heatmap: list[list[float]]) -> None:
 		await self._client.set(heatmap_key, json.dumps(heatmap, ensure_ascii=False))
+
+
+class PredictionConfigRepository:
+	def __init__(self, client: RedisClient, key_prefix: str = "prediction-config:") -> None:
+		self._client = client.client
+		self._key_prefix = key_prefix
+
+	def _key(self, token: str) -> str:
+		return f"{self._key_prefix}{token}"
+
+	async def get_for_token(self, token: str) -> PredictionConfig:
+		raw_config = await self._client.get(self._key(token))
+		if not raw_config:
+			return PredictionConfig()
+
+		try:
+			return PredictionConfig.model_validate_json(raw_config)
+		except Exception:
+			logger.warning("Invalid prediction config for token %s, falling back to defaults", token)
+			return PredictionConfig()
+
+	async def set_for_token(self, token: str, config: PredictionConfig) -> None:
+		await self._client.set(self._key(token), config.model_dump_json())
+

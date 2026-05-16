@@ -1,7 +1,9 @@
 from typing import Any
+import logging
 
 from scr.schemas.dota_input import Ability, GSIRequest, Item, MinimapObject
 from scr.infra.redis import ActiveTokensRepository, InferenceQueueRepository, SnapshotStateRepository 
+from fastapi import HTTPException
 from scr.infra.catalog import JsonCatalog
 from scr.schemas.dota_output import EnemySnapshot, GameStateRequest, HeroStatsSnapshot, CalculatedFeatures, AbilitySnapshot
 from scr.infra.formulas import cell_id, euclidean_distance
@@ -32,9 +34,18 @@ class GSIProcessorService:
 
 
     async def process_gsi_data(self, data: GSIRequest) -> GameStateRequest:
+        logger = logging.getLogger(__name__)
         token = data.auth.token
-        if not await self.active_token_repo.is_active(token):
-            raise PermissionError("Token is not active")
+        try:
+            is_active = await self.active_token_repo.is_active(token)
+        except Exception as e:
+            logger.exception("Error checking active token %s: %s", token, e)
+            raise HTTPException(status_code=503, detail="Failed to verify token activity")
+
+        logger.debug("active check for token=%s -> %s", token, is_active)
+        if not is_active:
+            logger.info("Rejecting GSI for inactive token=%s", token)
+            raise HTTPException(status_code=403, detail="Token is not active")
 
         previous_snapshot = await self.snapshot_state_repo.get_previous_snapshot(token)
 
@@ -120,8 +131,12 @@ class GSIProcessorService:
 
 
         record_id = f"{payload['match_id']}:{payload['account_id']}:{game_state.game_time}"
+        queue_payload = game_state.model_dump(mode="json")
+        queue_payload["__meta__"] = {"token": token}
+
+        record_id = f"{payload['match_id']}:{payload['account_id']}:{game_state.game_time}"
         await self.inference_queue_repo.enqueue_request(
-            InferenceRecord(record_id=record_id, payload=game_state.model_dump(mode="json"))
+            InferenceRecord(record_id=record_id, payload=queue_payload)
         )
 
 

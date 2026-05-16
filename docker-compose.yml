@@ -44,31 +44,16 @@ services:
     build:
       context: .
       dockerfile: services/inference/Dockerfile
-    container_name: ml-dota-inference
     restart: always
     depends_on:
       redis:
         condition: service_healthy
     env_file:
       - .env
-    environment:
-      # Internal Docker network communication
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      INFERENCE_PORT: 8000
-      INFERENCE_INPUT_QUEUE: "inference:input"
-      INFERENCE_OUTPUT_QUEUE: "inference:output"
-      HEATMAP_RESULT_KEY: "heat_map"
-      BATCH_SIZE: 16
-      POLL_INTERVAL_SECONDS: 1.0
-      CELLS: ${CELLS:-32}
-      MODEL_PATH: /app/services/inference/scr/infra/model.cbm
     networks:
       - app_network
     ports:
       - "${INFERENCE_EXTERNAL_PORT:-8000}:8000"
-    expose:
-      - "8000"
 
   gsi_processor:
     build:

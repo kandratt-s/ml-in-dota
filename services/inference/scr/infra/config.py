@@ -27,13 +27,12 @@ class Settings(BaseSettings):
     ABILITIES_JSON: Path = LOCAL_DATA / "abilities.json"
 
     # Model configuration
-    MODEL_PATH: Path | None = Field(
-        default=Path(__file__).resolve().parents[2] / "scr" / "infra" / "model.cbm",
-        description="Path to the trained CatBoost model file",
-    )
+    MODEL_ARTIFACTS_DIR: Path = Path(__file__).resolve().parents[2] / "artifacts"
+    BOOSTING_MODELS_DIR: Path = MODEL_ARTIFACTS_DIR / "boosting"
+    LOGREG_MODELS_DIR: Path = MODEL_ARTIFACTS_DIR / "logreg"
 
     # Worker settings
-    BATCH_SIZE: int = 16
+    BATCH_SIZE: int = 32
     POLL_INTERVAL_SECONDS: float = 1.0
 
     # Consumer group and worker identity
@@ -48,7 +47,7 @@ class Settings(BaseSettings):
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
-    @field_validator("MODEL_PATH", mode="before")
+    @field_validator("MODEL_ARTIFACTS_DIR", "BOOSTING_MODELS_DIR", "LOGREG_MODELS_DIR", mode="before")
     @classmethod
     def normalize_model_path(cls, value: object) -> Path | None:
         if value is None:

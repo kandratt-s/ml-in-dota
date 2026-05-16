@@ -25,7 +25,7 @@ class RedisClient:
 class ActiveTokensRepository:
     def __init__(self, client: RedisClient) -> None:
         self.r = client.raw
-        self.prefix = "active:token:"
+        self.prefix = "active:"
         self.ttl = 5400
 
     async def add(self, token: str) -> None:
@@ -38,7 +38,8 @@ class ActiveTokensRepository:
     async def is_active(self, token: str) -> bool:
         # key = self.prefix + token
         # return await self.r.exists(key) == 1
-        return True
+        key = self.prefix + token
+        return bool(await self.r.exists(key))
 
 
 class InferenceQueueRepository:
