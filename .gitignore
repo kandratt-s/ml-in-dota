@@ -183,6 +183,7 @@ research/dota_info/odota_parsed/*
 !research/dota_info/odota_parsed/.gitkeep
 
 tests
+!services/front/tests/
 
 #vscode
 .vscode/
@@ -190,3 +191,23 @@ tests
 
 
 data/*.csv
+
+### Go (services/bff) ###
+# compiled binaries (Linux/macOS have no extension)
+services/bff/bff
+services/bff/cmd/server/server
+*.exe
+*.test
+*.out
+coverage.txt
+
+### Node / Vite (services/front) ###
+node_modules/
+.vite/
+*.tsbuildinfo
+
+### OS / editor cruft ###
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
