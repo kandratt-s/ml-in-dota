@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
-from typing import Any
 
 from scr.schemas.inference_request import InferenceBatchItem, InferenceStreamMessage
 from scr.services.features import flatten_mapping
@@ -28,7 +26,7 @@ class BatchBuilder:
                         raw_payload=payload,
                     )
                 )
-            except Exception as e:
+            except Exception:
                 logger.exception("Error building batch item from record: %s", raw_record)
                 continue
 

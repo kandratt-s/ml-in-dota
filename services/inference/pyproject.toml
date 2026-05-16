@@ -15,5 +15,3 @@ dependencies = [
     "joblib>=1.5.3",
 ]
 
-[project.scripts]
-inference = "main:main"
