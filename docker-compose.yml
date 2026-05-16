@@ -91,11 +91,11 @@ services:
       retries: 5
       start_period: 15s
 
-  web:
+  bff:
     build:
       context: .
-      dockerfile: services/web/Dockerfile
-    container_name: ml-dota-web
+      dockerfile: services/bff/Dockerfile
+    container_name: ml-dota-bff
     restart: always
     depends_on:
       redis:
@@ -105,24 +105,33 @@ services:
     env_file:
       - .env
     environment:
-      # Internal Docker network communication
+      BFF_ADDR: ":8080"
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      WEB_PORT: 8501
-      REQUEST_TIMEOUT_SECONDS: 10
-      # Use Docker service name for internal communication
-      INFERENCE_SERVICE_URL: http://inference:8000
-      CELLS: ${CELLS:-32}
-      MAP_PATH: assets/600px-Gamemap_7.40_minimap_dota2_gameasset.png
-      STREAMLIT_SERVER_PORT: 8501
-      STREAMLIT_SERVER_ADDRESS: 0.0.0.0
+      PREDICTION_KEY_PREFIX: predictions
+      PREDICTION_POLL_MS: 1000
     networks:
       - app_network
     ports:
-      - "${WEB_EXTERNAL_PORT:-8501}:8501"
+      - "${BFF_EXTERNAL_PORT:-8080}:8080"
     expose:
-      - "8501"
+      - "8080"
+
+  front:
+    build:
+      context: .
+      dockerfile: services/front/Dockerfile
+    container_name: ml-dota-front
+    restart: always
+    depends_on:
+      - bff
+    networks:
+      - app_network
+    ports:
+      - "${FRONT_EXTERNAL_PORT:-3000}:3000"
+    expose:
+      - "3000"
 
 volumes:
   postgres_data:
