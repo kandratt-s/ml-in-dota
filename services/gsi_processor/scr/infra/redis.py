@@ -1,5 +1,5 @@
 import json
-
+import logging
 import redis.asyncio as aioredis
 
 from scr.schemas.inference_queue import InferenceRecord
@@ -100,7 +100,6 @@ class SnapshotStateRepository:
             await self.r.set(self._snapshot_key(token), snapshot_json)
         except Exception as e:
             # Log but don't fail - snapshot storage is not critical
-            import logging
             logging.warning(f"Failed to save snapshot for token {token}: {e}")
     
     async def clear_snapshot(self, token: str) -> None:
