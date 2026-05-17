@@ -6,20 +6,15 @@ import (
 	"sync"
 )
 
-// FakeStore is a thread-safe in-memory implementation of Store for tests and
-// local development without a real Redis.
 type FakeStore struct {
-	mu          sync.RWMutex
-	sessions    map[string]Session
-	predictions map[string]string
-	PingErr     error
+	mu       sync.RWMutex
+	sessions map[string]Session
+	heatmap  [][]float64
+	PingErr  error
 }
 
 func NewFakeStore() *FakeStore {
-	return &FakeStore{
-		sessions:    make(map[string]Session),
-		predictions: make(map[string]string),
-	}
+	return &FakeStore{sessions: make(map[string]Session)}
 }
 
 func (f *FakeStore) StartSession(_ context.Context, s Session) error {
@@ -52,22 +47,26 @@ func (f *FakeStore) GetSession(_ context.Context, token string) (*Session, error
 	return &s, nil
 }
 
-func (f *FakeStore) GetPrediction(_ context.Context, token string) (string, error) {
+func (f *FakeStore) GetHeatmap(_ context.Context) ([][]float64, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	if v, ok := f.predictions[token]; ok {
-		return v, nil
+	if f.heatmap == nil {
+		return nil, nil
 	}
-	if v, ok := f.predictions["__latest__"]; ok {
-		return v, nil
+	// Return a defensive copy so callers can't mutate stored state.
+	out := make([][]float64, len(f.heatmap))
+	for i, row := range f.heatmap {
+		dup := make([]float64, len(row))
+		copy(dup, row)
+		out[i] = dup
 	}
-	return "", nil
+	return out, nil
 }
 
-func (f *FakeStore) SetPrediction(token, payload string) {
+func (f *FakeStore) SetHeatmap(m [][]float64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.predictions[token] = payload
+	f.heatmap = m
 }
 
 func (f *FakeStore) Ping(_ context.Context) error { return f.PingErr }

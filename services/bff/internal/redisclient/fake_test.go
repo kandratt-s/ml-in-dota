@@ -44,15 +44,28 @@ func TestFakeStore_RejectsEmptyToken(t *testing.T) {
 	}
 }
 
-func TestFakeStore_PredictionFallback(t *testing.T) {
+func TestFakeStore_Heatmap(t *testing.T) {
 	ctx := context.Background()
 	f := NewFakeStore()
-	f.SetPrediction("__latest__", `{"radiant_win_prob":0.7}`)
-	v, err := f.GetPrediction(ctx, "missing-token")
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
+
+	m, err := f.GetHeatmap(ctx)
+	if err != nil || m != nil {
+		t.Fatalf("expected nil heatmap initially, got %v err=%v", m, err)
 	}
-	if v == "" {
-		t.Fatalf("expected fallback prediction value")
+
+	f.SetHeatmap([][]float64{{0.1, 0.2}, {0.3, 0.4}})
+	m, err = f.GetHeatmap(ctx)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if len(m) != 2 || m[1][1] != 0.4 {
+		t.Fatalf("unexpected heatmap: %+v", m)
+	}
+
+	// Mutating the returned copy must not affect stored state.
+	m[0][0] = 99.0
+	m2, _ := f.GetHeatmap(ctx)
+	if m2[0][0] != 0.1 {
+		t.Fatalf("FakeStore must return defensive copy, got %f", m2[0][0])
 	}
 }

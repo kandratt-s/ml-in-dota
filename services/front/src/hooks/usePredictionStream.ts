@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { predictionsUrl } from "@/lib/api";
-import type { PredictionFrame } from "@/types/config";
+import type { HeatmapFrame } from "@/types/config";
 
 export type StreamStatus = "idle" | "connecting" | "open" | "closed" | "error";
 
 export interface PredictionStreamState {
   status: StreamStatus;
-  latest: PredictionFrame | null;
+  latest: HeatmapFrame | null;
 }
 
 export function usePredictionStream(token: string | null): PredictionStreamState {
   const [status, setStatus] = useState<StreamStatus>("idle");
-  const [latest, setLatest] = useState<PredictionFrame | null>(null);
+  const [latest, setLatest] = useState<HeatmapFrame | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -29,10 +29,10 @@ export function usePredictionStream(token: string | null): PredictionStreamState
     ws.onclose = () => setStatus((s) => (s === "error" ? "error" : "closed"));
     ws.onmessage = (ev) => {
       try {
-        const frame = JSON.parse(ev.data) as PredictionFrame;
-        setLatest(frame);
+        const frame = JSON.parse(ev.data) as HeatmapFrame;
+        if (Array.isArray(frame.matrix)) setLatest(frame);
       } catch {
-        // ignore malformed frames; the BFF mock guarantees valid JSON
+        // ignore malformed frames; the BFF guarantees valid JSON
       }
     };
 

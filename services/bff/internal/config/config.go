@@ -11,7 +11,7 @@ type Config struct {
 	RedisAddr       string
 	RedisPassword   string
 	RedisDB         int
-	PredictionKey   string
+	HeatmapKey      string
 	PollInterval    time.Duration
 	AllowedOrigins  []string
 	ShutdownTimeout time.Duration
@@ -23,8 +23,8 @@ func Load() Config {
 		RedisAddr:       env("REDIS_ADDR", env("REDIS_HOST", "redis")+":"+env("REDIS_PORT", "6379")),
 		RedisPassword:   os.Getenv("REDIS_PASSWORD"),
 		RedisDB:         envInt("REDIS_DB", 0),
-		PredictionKey:   env("PREDICTION_KEY_PREFIX", "predictions"),
-		PollInterval:    time.Duration(envInt("PREDICTION_POLL_MS", 1000)) * time.Millisecond,
+		HeatmapKey:      env("HEATMAP_RESULT_KEY", "heat_map"),
+		PollInterval:    time.Duration(envInt("HEATMAP_POLL_MS", 1000)) * time.Millisecond,
 		AllowedOrigins:  []string{"*"},
 		ShutdownTimeout: 10 * time.Second,
 	}
