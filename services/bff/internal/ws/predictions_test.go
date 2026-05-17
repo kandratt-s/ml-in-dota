@@ -99,7 +99,7 @@ func TestHub_ForwardsStoredHeatmap(t *testing.T) {
 	}
 }
 
-func TestHub_MockFallback(t *testing.T) {
+func TestHub_DoesNotEmitMockWhenNoRealData(t *testing.T) {
 	hub := NewHub(redisclient.NewFakeStore(), 50*time.Millisecond)
 	srv := httptest.NewServer(hub)
 	defer srv.Close()
@@ -115,18 +115,13 @@ func TestHub_MockFallback(t *testing.T) {
 	defer c.Close(websocket.StatusNormalClosure, "")
 
 	_, data, err := c.Read(ctx)
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-
-	var got heatmapFrame
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if got.Source != "mock" {
-		t.Fatalf("expected source=mock, got %q", got.Source)
-	}
-	if got.Cells != defaultCells || len(got.Matrix) != defaultCells {
-		t.Fatalf("expected %dx%d matrix, got %d rows", defaultCells, defaultCells, len(got.Matrix))
+	if err == nil {
+		var got heatmapFrame
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if got.Source == "mock" {
+			t.Fatalf("expected no mock frame, got %q", string(data))
+		}
 	}
 }

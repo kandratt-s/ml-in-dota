@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends
 
 from scr.schemas.dota_output import GameStateRequest
 from scr.schemas.dota_input import GSIRequest

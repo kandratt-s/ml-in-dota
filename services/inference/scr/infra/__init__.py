@@ -1,1 +1,1 @@
-from scr.infra.config import settings
+# from scr.infra.config import settings

@@ -1,7 +1,7 @@
 import type { SessionConfig } from "@/types/config";
 
 const BFF_BASE =
-  (import.meta.env.VITE_BFF_BASE_URL as string | undefined) ?? "http://localhost:8080";
+  (import.meta.env.VITE_BFF_BASE_URL as string | undefined) ?? "";
 
 const WS_BASE =
   (import.meta.env.VITE_BFF_WS_URL as string | undefined) ??

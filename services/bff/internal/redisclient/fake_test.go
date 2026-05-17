@@ -69,3 +69,34 @@ func TestFakeStore_Heatmap(t *testing.T) {
 		t.Fatalf("FakeStore must return defensive copy, got %f", m2[0][0])
 	}
 }
+
+func TestFakeStore_StopSessionCleansTokenArtifacts(t *testing.T) {
+	ctx := context.Background()
+	f := NewFakeStore()
+
+	if err := f.StartSession(ctx, Session{Token: "t1", Config: SessionConfig{Model: "boosting", Time: 10, Interval: 1, FullMap: true}}); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if err := f.SetPredictionConfig(ctx, "t1", SessionConfig{Model: "logreg", Time: 5, Interval: 3, FullMap: false}); err != nil {
+		t.Fatalf("set prediction config: %v", err)
+	}
+	f.SetHeatmapForToken("t1", [][]float64{{1}})
+	f.SetSnapshotKey("t1")
+
+	if err := f.StopSession(ctx, "t1"); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+
+	if f.HasSession("t1") {
+		t.Fatalf("session should be removed")
+	}
+	if _, ok := f.heatmapsPerToken["t1"]; ok {
+		t.Fatalf("token heatmap should be removed")
+	}
+	if _, ok := f.predictionConfigs["t1"]; ok {
+		t.Fatalf("prediction config should be removed")
+	}
+	if len(f.snapshotKeys) != 0 {
+		t.Fatalf("snapshot keys should be removed, got %d", len(f.snapshotKeys))
+	}
+}
