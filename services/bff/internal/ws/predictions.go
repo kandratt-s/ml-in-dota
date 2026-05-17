@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/ml-in-dota/bff/internal/redisclient"
@@ -87,9 +86,7 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	var tick uint64
-
-	if err := h.sendOnce(ctx, c, token, &tick); err != nil {
+	if err := h.sendOnce(ctx, c, token); err != nil {
 		log.Printf("ws initial send: %v", err)
 		return
 	}
@@ -100,14 +97,14 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			c.Close(websocket.StatusNormalClosure, "client gone")
 			return
 		case <-ticker.C:
-			if err := h.sendOnce(ctx, c, token, &tick); err != nil {
+			if err := h.sendOnce(ctx, c, token); err != nil {
 				return
 			}
 		}
 	}
 }
 
-func (h *Hub) sendOnce(ctx context.Context, c *websocket.Conn, token string, tick *uint64) error {
+func (h *Hub) sendOnce(ctx context.Context, c *websocket.Conn, token string) error {
 	sendCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
@@ -118,19 +115,32 @@ func (h *Hub) sendOnce(ctx context.Context, c *websocket.Conn, token string, tic
 
 	var (
 		matrix [][]float64
-		source = "mock"
+		source = "none"
 	)
-	m, err := h.Store.GetHeatmap(ctx)
-	switch {
-	case err != nil:
-		log.Printf("heatmap read failed, falling back to mock: %v", err)
-		matrix = mockMatrix(cells, atomic.AddUint64(tick, 1))
-	case len(m) > 0:
+	// Prefer token-scoped heatmap written by inference: heat_map:<token>
+	if m, err := h.Store.GetHeatmapForToken(ctx, token); err != nil {
+		log.Printf("heatmap read failed for token=%s: %v", token, err)
+		// don't silently fallback to mock; skip sending a frame so frontend
+		// doesn't receive fabricated data. Connection remains open and we
+		// will retry on next tick.
+		return nil
+	} else if len(m) > 0 {
 		matrix = m
 		source = "redis"
 		cells = len(m)
-	default:
-		matrix = mockMatrix(cells, atomic.AddUint64(tick, 1))
+	} else {
+		// No token-specific heatmap available. Attempt legacy global key.
+		if gm, gerr := h.Store.GetHeatmap(ctx); gerr != nil {
+			log.Printf("global heatmap read failed: %v", gerr)
+			return nil
+		} else if len(gm) > 0 {
+			matrix = gm
+			source = "redis"
+			cells = len(gm)
+		} else {
+			// No data available; do not emit mock frames by default.
+			return nil
+		}
 	}
 
 	frame := heatmapFrame{

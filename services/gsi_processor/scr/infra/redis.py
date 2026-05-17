@@ -26,7 +26,7 @@ class ActiveTokensRepository:
     def __init__(self, client: RedisClient) -> None:
         self.r = client.raw
         self.prefix = "active:"
-        self.ttl = 5400
+        self.ttl = 60 * 60
 
     async def add(self, token: str) -> None:
         key = self.prefix + token
@@ -51,6 +51,7 @@ class InferenceQueueRepository:
         message = record.model_dump_json()
         # Use Redis Streams for enqueueing requests
         await self.r.xadd(self.queue_name, {"data": message})
+        await self.r.xtrim(self.queue_name, maxlen=1000, approximate=True)
 
 
 class SnapshotStateRepository:
@@ -97,8 +98,8 @@ class SnapshotStateRepository:
         """
         try:
             snapshot_json = snapshot.model_dump_json()
-            # Store without expiration - will be updated on next GSI event
-            await self.r.set(self._snapshot_key(token), snapshot_json)
+            # Keep snapshots short-lived; they only need to bridge adjacent GSI events.
+            await self.r.set(self._snapshot_key(token), snapshot_json, ex=60)
         except Exception as e:
             # Log but don't fail - snapshot storage is not critical
             logging.warning(f"Failed to save snapshot for token {token}: {e}")

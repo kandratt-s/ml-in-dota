@@ -1,7 +1,7 @@
 // Renders the exact VDF text block expected by Valve's dota2-gsi loader.
 // Keep the formatting byte-for-byte stable: the on-screen block is meant to be
 // copy-pasted directly into `cfg/gamestate_integration_<name>.cfg`.
-export function buildGsiConfig(token: string, uri = "http://localhost:3000/"): string {
+export function buildGsiConfig(token: string, uri = "/gsi-input"): string {
   return `"dota2-gsi Configuration"
 {
     "uri"          "${uri}"

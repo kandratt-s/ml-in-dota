@@ -119,6 +119,7 @@ class InferenceRedisRepository:
 			for result in results:
 				payload = result.model_dump_json()
 				await self._client.xadd(self._output_queue_name, {"data": payload})
+				await self._client.xtrim(self._output_queue_name, maxlen=1000, approximate=True)
 			logger.debug("Pushed %d results to output stream %s", len(results), self._output_queue_name)
 		except Exception as e:
 			logger.error("Error pushing results to Redis stream: %s", e)
@@ -130,6 +131,7 @@ class InferenceRedisRepository:
 
 		for result in results:
 			await self._client.xadd(self._output_queue_name, {"data": json.dumps(result, ensure_ascii=False)})
+			await self._client.xtrim(self._output_queue_name, maxlen=1000, approximate=True)
 
 	async def ack_messages(self, ids: Iterable[str]) -> None:
 		"""Acknowledge processed message ids in the input stream group."""
@@ -162,7 +164,7 @@ class InferenceRedisRepository:
 		return parsed_heatmap
 
 	async def set_heatmap(self, heatmap_key: str, heatmap: list[list[float]]) -> None:
-		await self._client.set(heatmap_key, json.dumps(heatmap, ensure_ascii=False))
+		await self._client.set(heatmap_key, json.dumps(heatmap, ensure_ascii=False), ex=60)
 
 
 class PredictionConfigRepository:
@@ -185,5 +187,6 @@ class PredictionConfigRepository:
 			return PredictionConfig()
 
 	async def set_for_token(self, token: str, config: PredictionConfig) -> None:
-		await self._client.set(self._key(token), config.model_dump_json())
+		# Keep prediction config available for 60 minutes to match BFF behaviour
+		await self._client.set(self._key(token), config.model_dump_json(), ex=60 * 60)
 

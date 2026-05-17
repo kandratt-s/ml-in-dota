@@ -17,8 +17,8 @@ func New(store redisclient.Store) *API {
 }
 
 type startRequest struct {
-	Token  string                     `json:"token"`
-	Config redisclient.SessionConfig  `json:"config"`
+	Token  string                    `json:"token"`
+	Config redisclient.SessionConfig `json:"config"`
 }
 
 type stopRequest struct {
@@ -94,6 +94,11 @@ func (a *API) Start(w http.ResponseWriter, r *http.Request) {
 	session := redisclient.Session{Token: req.Token, Config: req.Config}
 	if err := a.Store.StartSession(r.Context(), session); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to persist session")
+		return
+	}
+	// Persist prediction config so inference can pick up UI choices.
+	if err := a.Store.SetPredictionConfig(r.Context(), req.Token, req.Config); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to persist prediction config")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "started", "token": req.Token})

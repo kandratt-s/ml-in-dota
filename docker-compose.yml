@@ -1,24 +1,24 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: ml-dota-postgres
-    restart: always
-    env_file:
-      - .env
-    environment:
-      POSTGRES_PORT: 5432
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./data/postgres_init:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app_network
-    ports:
-      - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
+  # postgres:
+  #   image: postgres:16
+  #   container_name: ml-dota-postgres
+  #   restart: always
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     POSTGRES_PORT: 5432
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./data/postgres_init:/docker-entrypoint-initdb.d
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - app_network
+  #   ports:
+  #     - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
 
   redis:
     image: redis:7-alpine
@@ -34,8 +34,8 @@ services:
       retries: 5
     networks:
       - app_network
-    ports:
-      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+    env_file:
+      - .env
 
   inference:
     build:
@@ -49,8 +49,6 @@ services:
       - .env
     networks:
       - app_network
-    ports:
-      - "${INFERENCE_EXTERNAL_PORT:-8000}:8000"
 
   gsi_processor:
     build:
@@ -86,19 +84,9 @@ services:
         condition: service_started
     env_file:
       - .env
-    environment:
-      BFF_ADDR: ":8080"
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      HEATMAP_RESULT_KEY: heat_map
-      HEATMAP_POLL_MS: 1000
     networks:
       - app_network
-    ports:
-      - "${BFF_EXTERNAL_PORT:-8080}:8080"
-    expose:
-      - "8080"
+
 
   front:
     build:
@@ -112,8 +100,7 @@ services:
       - app_network
     ports:
       - "${FRONT_EXTERNAL_PORT:-3000}:3000"
-    expose:
-      - "3000"
+
 
 volumes:
   postgres_data:

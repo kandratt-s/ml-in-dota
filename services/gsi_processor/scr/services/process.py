@@ -10,8 +10,6 @@ from scr.infra.formulas import cell_id, euclidean_distance
 from scr.schemas.inference_queue import InferenceRecord
 from scr.schemas.snapshot import EnemyPositionSnapshot, SnapshotState
 
-import json
-from pathlib import Path
 
 class GSIProcessorService:
     def __init__(
