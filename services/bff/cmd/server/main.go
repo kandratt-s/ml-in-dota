@@ -23,7 +23,7 @@ import (
 func main() {
 	cfg := config.Load()
 
-	store := redisclient.New(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB, cfg.PredictionKey)
+	store := redisclient.New(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB, cfg.HeatmapKey)
 	defer store.Close()
 
 	if err := store.Ping(context.Background()); err != nil {
@@ -39,7 +39,7 @@ func main() {
 		Addr:         cfg.HTTPAddr,
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0, // websocket streams need unbounded writes
+		WriteTimeout: 0,
 		IdleTimeout:  60 * time.Second,
 	}
 
@@ -68,7 +68,6 @@ func buildRouter(api *handlers.API, hub *ws.Hub, allowed []string) http.Handler 
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   allowed,
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
@@ -77,11 +76,15 @@ func buildRouter(api *handlers.API, hub *ws.Hub, allowed []string) http.Handler 
 		MaxAge:           300,
 	}))
 
-	r.Get("/health", api.Health)
-	r.Route("/api", func(r chi.Router) {
-		r.Post("/start", api.Start)
-		r.Post("/stop", api.Stop)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Timeout(30 * time.Second))
+		r.Get("/health", api.Health)
+		r.Route("/api", func(r chi.Router) {
+			r.Post("/start", api.Start)
+			r.Post("/stop", api.Stop)
+		})
 	})
+
 	r.Handle("/ws/predictions", hub)
 	return r
 }

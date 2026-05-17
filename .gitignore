@@ -205,6 +205,40 @@ coverage.txt
 node_modules/
 .vite/
 *.tsbuildinfo
+# vitest / jest coverage
+coverage/
+.nyc_output/
+# Vite env overrides (frontend secrets / per-env URLs)
+.env.local
+.env.*.local
+*.env.local
+
+### Negations — must keep these tracked despite broader rules above ###
+# the broad Python `lib/` rule on line 21 was eating the frontend lib dir
+!services/front/src/lib/
+!services/front/src/lib/**
+
+### Safety net — never commit these by accident ###
+# private keys & certs
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.env.secret
+secrets.json
+credentials.json
+service-account*.json
+gcp-*.json
+# local-only docker overrides
+docker-compose.override.yml
+docker-compose.override.yaml
+# editor backups & merge leftovers
+*.bak
+*.orig
+*.rej
 
 ### OS / editor cruft ###
 .DS_Store

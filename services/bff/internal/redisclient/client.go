@@ -28,17 +28,17 @@ type Store interface {
 	StartSession(ctx context.Context, s Session) error
 	StopSession(ctx context.Context, token string) error
 	GetSession(ctx context.Context, token string) (*Session, error)
-	GetPrediction(ctx context.Context, token string) (string, error)
+	GetHeatmap(ctx context.Context) ([][]float64, error)
 	Ping(ctx context.Context) error
 	Close() error
 }
 
 type RedisStore struct {
-	rdb              *redis.Client
-	predictionPrefix string
+	rdb        *redis.Client
+	heatmapKey string
 }
 
-func New(addr, password string, db int, predictionPrefix string) *RedisStore {
+func New(addr, password string, db int, heatmapKey string) *RedisStore {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         addr,
 		Password:     password,
@@ -47,7 +47,7 @@ func New(addr, password string, db int, predictionPrefix string) *RedisStore {
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 3 * time.Second,
 	})
-	return &RedisStore{rdb: rdb, predictionPrefix: predictionPrefix}
+	return &RedisStore{rdb: rdb, heatmapKey: heatmapKey}
 }
 
 func activeKey(token string) string { return "active:" + token }
@@ -85,25 +85,19 @@ func (r *RedisStore) GetSession(ctx context.Context, token string) (*Session, er
 	return &s, nil
 }
 
-// GetPrediction reads the most recent prediction emitted by the inference
-// service for this session, if any. The contract here is intentionally loose:
-// inference may write into predictions:<token>, predictions:latest, etc.
-func (r *RedisStore) GetPrediction(ctx context.Context, token string) (string, error) {
-	keys := []string{
-		r.predictionPrefix + ":" + token,
-		r.predictionPrefix + ":latest",
-	}
-	for _, k := range keys {
-		v, err := r.rdb.Get(ctx, k).Result()
+func (r *RedisStore) GetHeatmap(ctx context.Context) ([][]float64, error) {
+	val, err := r.rdb.Get(ctx, r.heatmapKey).Result()
+	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			continue
+			return nil, nil
 		}
-		if err != nil {
-			return "", err
-		}
-		return v, nil
+		return nil, err
 	}
-	return "", nil
+	var matrix [][]float64
+	if err := json.Unmarshal([]byte(val), &matrix); err != nil {
+		return nil, fmt.Errorf("decode heatmap: %w", err)
+	}
+	return matrix, nil
 }
 
 func (r *RedisStore) Ping(ctx context.Context) error { return r.rdb.Ping(ctx).Err() }

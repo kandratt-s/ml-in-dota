@@ -6,7 +6,6 @@ services:
     env_file:
       - .env
     environment:
-      # Override with docker internal port
       POSTGRES_PORT: 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -18,7 +17,6 @@ services:
       retries: 5
     networks:
       - app_network
-    # Ports exposed only for local development/debugging if needed
     ports:
       - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
 
@@ -36,7 +34,6 @@ services:
       retries: 5
     networks:
       - app_network
-    # Ports exposed only for local development/debugging if needed
     ports:
       - "${REDIS_EXTERNAL_PORT:-6379}:6379"
 
@@ -109,8 +106,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      PREDICTION_KEY_PREFIX: predictions
-      PREDICTION_POLL_MS: 1000
+      HEATMAP_RESULT_KEY: heat_map
+      HEATMAP_POLL_MS: 1000
     networks:
       - app_network
     ports:

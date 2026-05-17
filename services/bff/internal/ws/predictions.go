@@ -4,39 +4,66 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/ml-in-dota/bff/internal/redisclient"
 	"nhooyr.io/websocket"
 )
 
+const (
+	defaultCells      = 32
+	minStreamInterval = 200 * time.Millisecond
+	maxStreamInterval = 60 * time.Second
+)
+
 type Hub struct {
-	Store    redisclient.Store
-	Interval time.Duration
+	Store           redisclient.Store
+	DefaultInterval time.Duration
+	Cells           int
 }
 
-func NewHub(store redisclient.Store, interval time.Duration) *Hub {
-	if interval <= 0 {
-		interval = time.Second
+func NewHub(store redisclient.Store, defaultInterval time.Duration) *Hub {
+	if defaultInterval <= 0 {
+		defaultInterval = time.Second
 	}
-	return &Hub{Store: store, Interval: interval}
+	return &Hub{Store: store, DefaultInterval: defaultInterval, Cells: defaultCells}
 }
 
-type predictionFrame struct {
-	Token     string    `json:"token"`
-	Timestamp time.Time `json:"timestamp"`
-	// Probability of radiant win (0..1). When live predictions are present in
-	// Redis we forward those verbatim instead.
-	RadiantWinProb float64 `json:"radiant_win_prob"`
-	Source         string  `json:"source"`
+// intervalForToken decides how often this WS connection should emit frames.
+// Priority: session config in Redis (set by /api/start) → hub default → 1s.
+// The result is clamped to [minStreamInterval, maxStreamInterval] so a
+// malformed value can't either pin a CPU or freeze the UI.
+func intervalForToken(ctx context.Context, store redisclient.Store, token string, def time.Duration) time.Duration {
+	chosen := def
+	if s, err := store.GetSession(ctx, token); err == nil && s != nil && s.Config.Interval > 0 {
+		chosen = time.Duration(s.Config.Interval) * time.Second
+	}
+	if chosen < minStreamInterval {
+		chosen = minStreamInterval
+	}
+	if chosen > maxStreamInterval {
+		chosen = maxStreamInterval
+	}
+	return chosen
 }
 
-// ServeHTTP upgrades the connection to a websocket and streams prediction
-// frames for the token passed via ?token=... query string. If a real
-// prediction blob is present in Redis it is forwarded as-is; otherwise a
-// mocked frame is sent so the UI has something to react to during development.
+// heatmapFrame is the on-the-wire shape the frontend subscribes to. We keep
+// the matrix explicit (no compression) — 32×32 floats fit comfortably in a
+// single websocket text frame.
+type heatmapFrame struct {
+	Token     string      `json:"token"`
+	Timestamp time.Time   `json:"timestamp"`
+	Cells     int         `json:"cells"`
+	MaxValue  float64     `json:"max_value"`
+	Matrix    [][]float64 `json:"matrix"`
+	Source    string      `json:"source"` // "redis" or "mock"
+}
+
+// ServeHTTP upgrades to a websocket and streams heatmap frames for the token
 func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
@@ -44,20 +71,25 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	interval := intervalForToken(r.Context(), h.Store, token, h.DefaultInterval)
+
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		InsecureSkipVerify: true, // origins are constrained by the CORS middleware
+		InsecureSkipVerify: true,
 	})
 	if err != nil {
 		log.Printf("ws accept: %v", err)
 		return
 	}
 	defer c.Close(websocket.StatusInternalError, "stream ended")
+	log.Printf("ws open token=%s interval=%s", token, interval)
 
 	ctx := r.Context()
-	ticker := time.NewTicker(h.Interval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	if err := h.sendOnce(ctx, c, token); err != nil {
+	var tick uint64
+
+	if err := h.sendOnce(ctx, c, token, &tick); err != nil {
 		log.Printf("ws initial send: %v", err)
 		return
 	}
@@ -68,32 +100,93 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			c.Close(websocket.StatusNormalClosure, "client gone")
 			return
 		case <-ticker.C:
-			if err := h.sendOnce(ctx, c, token); err != nil {
+			if err := h.sendOnce(ctx, c, token, &tick); err != nil {
 				return
 			}
 		}
 	}
 }
 
-func (h *Hub) sendOnce(ctx context.Context, c *websocket.Conn, token string) error {
+func (h *Hub) sendOnce(ctx context.Context, c *websocket.Conn, token string, tick *uint64) error {
 	sendCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	if payload, err := h.Store.GetPrediction(ctx, token); err == nil && payload != "" {
-		return c.Write(sendCtx, websocket.MessageText, []byte(payload))
+	cells := h.Cells
+	if cells <= 0 {
+		cells = defaultCells
 	}
 
-	frame := predictionFrame{
-		Token:          token,
-		Timestamp:      time.Now().UTC(),
-		RadiantWinProb: mockProb(),
-		Source:         "mock",
+	var (
+		matrix [][]float64
+		source = "mock"
+	)
+	m, err := h.Store.GetHeatmap(ctx)
+	switch {
+	case err != nil:
+		log.Printf("heatmap read failed, falling back to mock: %v", err)
+		matrix = mockMatrix(cells, atomic.AddUint64(tick, 1))
+	case len(m) > 0:
+		matrix = m
+		source = "redis"
+		cells = len(m)
+	default:
+		matrix = mockMatrix(cells, atomic.AddUint64(tick, 1))
 	}
-	b, _ := json.Marshal(frame)
+
+	frame := heatmapFrame{
+		Token:     token,
+		Timestamp: time.Now().UTC(),
+		Cells:     cells,
+		MaxValue:  maxValue(matrix),
+		Matrix:    matrix,
+		Source:    source,
+	}
+	b, err := json.Marshal(frame)
+	if err != nil {
+		return err
+	}
 	return c.Write(sendCtx, websocket.MessageText, b)
 }
 
-func mockProb() float64 {
-	// Simple bounded random walk around 0.5 keeps the UI looking lively.
-	return 0.5 + (rand.Float64()-0.5)*0.4
+func maxValue(m [][]float64) float64 {
+	max := 0.0
+	for _, row := range m {
+		for _, v := range row {
+			if v > max {
+				max = v
+			}
+		}
+	}
+	if max == 0 {
+		return 1.0
+	}
+	return max
+}
+
+// mockMatrix produces
+func mockMatrix(cells int, tick uint64) [][]float64 {
+	t := float64(tick) * 0.07
+	cx := float64(cells)/2 + math.Cos(t)*float64(cells)*0.3
+	cy := float64(cells)/2 + math.Sin(t*0.8)*float64(cells)*0.3
+	sigma := float64(cells) * 0.18
+	denom := 2 * sigma * sigma
+
+	out := make([][]float64, cells)
+	for r := 0; r < cells; r++ {
+		row := make([]float64, cells)
+		for col := 0; col < cells; col++ {
+			dx := float64(col) - cx
+			dy := float64(r) - cy
+			v := math.Exp(-(dx*dx + dy*dy) / denom)
+			if rand.Float64() < 0.04 {
+				v += rand.Float64() * 0.3
+			}
+			if v > 1 {
+				v = 1
+			}
+			row[col] = v
+		}
+		out[r] = row
+	}
+	return out
 }
