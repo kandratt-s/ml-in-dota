@@ -8,12 +8,22 @@ import { generateToken } from "@/lib/token";
 import { usePredictionStream } from "@/hooks/usePredictionStream";
 import { DEFAULT_CONFIG, type SessionConfig } from "@/types/config";
 
+// ?token=... в URL означает «подключись к уже активной сессии под этим
+// токеном» — используется тестовым скриптом scripts/run-test.sh, который
+// сам активирует сессию и шлёт GSI в обход кнопки Start.
+function externalTokenFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const t = new URLSearchParams(window.location.search).get("token");
+  return t && t.trim() !== "" ? t : null;
+}
+
 export default function App() {
   const [config, setConfig] = useState<SessionConfig>(DEFAULT_CONFIG);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(externalTokenFromUrl);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const externalToken = externalTokenFromUrl();
   const running = token !== null;
   const { status, latest } = usePredictionStream(token);
 
@@ -55,7 +65,13 @@ export default function App() {
         <aside className="lg:col-span-1 space-y-6">
           <div className="rounded-2xl border border-slate-800 bg-panelMuted/40 p-5 space-y-6">
             <ConfigPanel config={config} onChange={setConfig} disabled={running} />
-            <StartStopButton running={running} busy={busy} onToggle={onToggle} />
+            {externalToken ? (
+              <div className="text-xs text-slate-300 bg-slate-800/50 border border-slate-700 rounded-md p-2">
+                Тестовый режим: подключён к сессии <code>{externalToken}</code>
+              </div>
+            ) : (
+              <StartStopButton running={running} busy={busy} onToggle={onToggle} />
+            )}
             {err && (
               <div
                 role="alert"
@@ -65,7 +81,7 @@ export default function App() {
               </div>
             )}
           </div>
-          {token && <GsiConfigBlock token={token} />}
+          {token && !externalToken && <GsiConfigBlock token={token} />}
         </aside>
 
         <section className="lg:col-span-3">
