@@ -179,9 +179,10 @@ class InferenceWorkerService:
 
                         heatmap_key = self._heatmap_key_for_token(token)
                         try:
-                            heatmap = await self._redis_repository.get_heatmap(heatmap_key)
-                            if not heatmap or len(heatmap) != cells:
-                                heatmap = [[0.0 for _ in range(cells)] for _ in range(cells)]
+                            # Rebuild the frame from scratch so squares that are not
+                            # predicted in this tick are cleared instead of
+                            # lingering from the previous heatmap.
+                            heatmap = [[0.0 for _ in range(cells)] for _ in range(cells)]
                             for sq, pred in zip(grid_squares, grid_preds, strict=False):
                                 if not isinstance(sq, int):
                                     continue
@@ -361,10 +362,7 @@ class InferenceWorkerService:
 
     async def _update_heatmap(self, batch: list[InferenceBatchItem], predictions: list[float]) -> None:
         cells = self._worker_settings.cells
-        heatmap = await self._redis_repository.get_heatmap(self._worker_settings.heatmap_result_key)
-
-        if not heatmap or len(heatmap) != cells:
-            heatmap = [[0.0 for _ in range(cells)] for _ in range(cells)]
+        heatmap = [[0.0 for _ in range(cells)] for _ in range(cells)]
 
         for batch_item, prediction in zip(batch, predictions, strict=False):
             square = batch_item.features.get("square")
