@@ -31,6 +31,14 @@ function alphaForRatio(ratio: number): number {
   return stops[stops.length - 1][1];
 }
 
+export function heatmapDisplayMax(maxValue?: number): number {
+  if (!maxValue || maxValue <= 0) {
+    return 1;
+  }
+
+  return Math.max(maxValue, 1);
+}
+
 // HeatmapCanvas draws an N×N matrix into a same-size offscreen canvas and
 // the browser scales it up via CSS. `image-rendering: pixelated` keeps the
 // scale-up crisp, so each matrix cell renders as a solid square with no
@@ -55,7 +63,7 @@ export function HeatmapCanvas({ matrix, maxValue, className }: HeatmapCanvasProp
       canvas.height = cells;
     }
 
-    const max = maxValue && maxValue > 0 ? maxValue : flatMax(matrix) || 1;
+    const max = heatmapDisplayMax(maxValue);
 
     const img = ctx.createImageData(cells, cells);
     for (let r = 0; r < cells; r++) {
@@ -83,10 +91,4 @@ export function HeatmapCanvas({ matrix, maxValue, className }: HeatmapCanvasProp
       style={{ imageRendering: "pixelated" }}
     />
   );
-}
-
-function flatMax(m: number[][]): number {
-  let max = 0;
-  for (const row of m) for (const v of row) if (v > max) max = v;
-  return max;
 }
