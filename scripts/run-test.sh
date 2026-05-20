@@ -25,15 +25,30 @@ cd "$ROOT"
 
 TOKEN="${TEST_TOKEN:-секретный_токен}"
 JSONL_DIR="$SCRIPT_DIR/gsi_jsonl"
-SPEED="${SPEED:-1.0}"
+SPEED="${SPEED:-0.1}"
 MODEL="${MODEL:-boosting}"
 PRED_TIME="${TIME:-20}"
 PRED_INTERVAL="${INTERVAL:-5}"
-case "${FULL_MAP:-0}" in 1|true|TRUE|yes) FULL_MAP_JSON=true;; *) FULL_MAP_JSON=false;; esac
+case "${FULL_MAP:-1}" in 1|true|TRUE|yes) FULL_MAP_JSON=true;; *) FULL_MAP_JSON=false;; esac
 FRONT_PORT="${FRONT_EXTERNAL_PORT:-3000}"
 GSI_PORT="${GSI_PROCESSOR_PORT:-8001}"
 BASE_URL="http://localhost:${FRONT_PORT}"
 GSI_HEALTH="http://localhost:${GSI_PORT}/health"
+
+compose() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+    return
+  fi
+
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+    return
+  fi
+
+  echo "[!] нужен docker compose или docker-compose" >&2
+  exit 1
+}
 
 JSONL_FILE="${JSONL_FILE:-}"
 if [[ -z "$JSONL_FILE" ]]; then
@@ -44,12 +59,12 @@ if [[ -z "$JSONL_FILE" || ! -f "$JSONL_FILE" ]]; then
   exit 1
 fi
 
-for tool in docker-compose curl jq python3; do
+for tool in docker curl jq python3; do
   command -v "$tool" >/dev/null 2>&1 || { echo "[!] нужен $tool" >&2; exit 1; }
 done
 
-echo "[*] docker-compose up --build -d"
-docker-compose up --build -d
+echo "[*] docker compose up --build -d"
+compose up --build -d
 
 echo "[*] Жду gsi_processor на $GSI_HEALTH ..."
 for i in $(seq 1 120); do
@@ -60,7 +75,7 @@ for i in $(seq 1 120); do
   sleep 1
   if [[ $i -eq 120 ]]; then
     echo "[!] gsi_processor не поднялся за 120s" >&2
-    docker-compose ps
+    compose ps
     exit 1
   fi
 done
@@ -77,7 +92,7 @@ for i in $(seq 1 60); do
   sleep 1
   if [[ $i -eq 60 ]]; then
     echo "[!] bff не отвечает через nginx-прокси" >&2
-    docker-compose ps
+    compose ps
     exit 1
   fi
 done
@@ -108,4 +123,4 @@ python3 "$SCRIPT_DIR/replay.py" \
 
 echo "[*] Replay завершён. Стек продолжает работать."
 echo "    Heatmap:  $FRONT_URL"
-echo "    Останов:  docker-compose down"
+echo "    Останов:  docker compose down"
