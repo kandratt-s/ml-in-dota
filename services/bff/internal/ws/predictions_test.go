@@ -125,3 +125,44 @@ func TestHub_DoesNotEmitMockWhenNoRealData(t *testing.T) {
 		}
 	}
 }
+
+func TestHub_SendsUpdateAfterHeatmapChange(t *testing.T) {
+	store := redisclient.NewFakeStore()
+	store.SetHeatmapForToken("t1", [][]float64{{0.1}})
+
+	hub := NewHub(store, 500*time.Millisecond)
+	srv := httptest.NewServer(hub)
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/?token=t1"
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	c, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer c.Close(websocket.StatusNormalClosure, "")
+
+	if _, _, err := c.Read(ctx); err != nil {
+		t.Fatalf("initial read: %v", err)
+	}
+
+	store.SetHeatmapForToken("t1", [][]float64{{0.9}})
+
+	_, data, err := c.Read(ctx)
+	if err != nil {
+		t.Fatalf("update read: %v", err)
+	}
+
+	var got heatmapFrame
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Source != "redis" {
+		t.Fatalf("expected source=redis, got %q", got.Source)
+	}
+	if got.Matrix[0][0] != 0.9 {
+		t.Fatalf("expected updated matrix, got %+v", got.Matrix)
+	}
+}

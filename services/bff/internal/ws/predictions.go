@@ -139,6 +139,11 @@ func (h *Hub) sendOnce(ctx context.Context, c *websocket.Conn, token string) err
 			cells = len(gm)
 		} else {
 			// No data available; do not emit mock frames by default.
+			// emit a lightweight heartbeat so clients know connection is alive
+			hb := map[string]any{"type": "heartbeat", "timestamp": time.Now().UTC()}
+			if b, err := json.Marshal(hb); err == nil {
+				_ = c.Write(sendCtx, websocket.MessageText, b)
+			}
 			return nil
 		}
 	}

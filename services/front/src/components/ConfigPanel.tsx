@@ -35,7 +35,7 @@ export function ConfigPanel({ config, onChange, disabled }: ConfigPanelProps) {
       />
 
       <OptionGroup<TimeWindow>
-        label="Time window (min)"
+        label="Time window (sec)"
         value={config.time}
         options={TIME_OPTIONS}
         onChange={(v) => onChange({ ...config, time: v })}

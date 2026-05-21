@@ -8,17 +8,18 @@ import (
 )
 
 type FakeStore struct {
-	mu                sync.RWMutex
-	sessions          map[string]Session
-	heatmap           [][]float64
-	heatmapsPerToken  map[string][][]float64
-	predictionConfigs map[string]SessionConfig
-	snapshotKeys      map[string]struct{}
-	PingErr           error
+	mu                 sync.RWMutex
+	sessions           map[string]Session
+	heatmap            [][]float64
+	heatmapsPerToken   map[string][][]float64
+	predictionConfigs  map[string]SessionConfig
+	snapshotKeys       map[string]struct{}
+	heatmapSubscribers map[string]map[chan struct{}]struct{}
+	PingErr            error
 }
 
 func NewFakeStore() *FakeStore {
-	return &FakeStore{sessions: make(map[string]Session), heatmapsPerToken: make(map[string][][]float64), predictionConfigs: make(map[string]SessionConfig), snapshotKeys: make(map[string]struct{})}
+	return &FakeStore{sessions: make(map[string]Session), heatmapsPerToken: make(map[string][][]float64), predictionConfigs: make(map[string]SessionConfig), snapshotKeys: make(map[string]struct{}), heatmapSubscribers: make(map[string]map[chan struct{}]struct{})}
 }
 
 func (f *FakeStore) StartSession(_ context.Context, s Session) error {
@@ -96,6 +97,7 @@ func (f *FakeStore) SetHeatmap(m [][]float64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.heatmap = m
+	f.notifyHeatmapLocked("")
 }
 
 func (f *FakeStore) GetHeatmapForToken(_ context.Context, token string) ([][]float64, error) {
@@ -128,6 +130,7 @@ func (f *FakeStore) SetHeatmapForToken(token string, m [][]float64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.heatmapsPerToken[token] = m
+	f.notifyHeatmapLocked(token)
 }
 
 func (f *FakeStore) SetPredictionConfig(_ context.Context, token string, cfg SessionConfig) error {
@@ -148,6 +151,44 @@ func (f *FakeStore) SetSnapshotKey(token string) {
 
 func (f *FakeStore) Ping(_ context.Context) error { return f.PingErr }
 func (f *FakeStore) Close() error                 { return nil }
+
+func (f *FakeStore) SubscribeHeatmapUpdates(ctx context.Context, token string) (<-chan struct{}, func(), error) {
+	updates := make(chan struct{}, 1)
+	f.mu.Lock()
+	if f.heatmapSubscribers[token] == nil {
+		f.heatmapSubscribers[token] = make(map[chan struct{}]struct{})
+	}
+	f.heatmapSubscribers[token][updates] = struct{}{}
+	f.mu.Unlock()
+
+	cleanup := func() {
+		f.mu.Lock()
+		if subs, ok := f.heatmapSubscribers[token]; ok {
+			delete(subs, updates)
+			if len(subs) == 0 {
+				delete(f.heatmapSubscribers, token)
+			}
+		}
+		f.mu.Unlock()
+	}
+
+	go func() {
+		<-ctx.Done()
+		cleanup()
+		close(updates)
+	}()
+
+	return updates, cleanup, nil
+}
+
+func (f *FakeStore) notifyHeatmapLocked(token string) {
+	for ch := range f.heatmapSubscribers[token] {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
 
 // HasSession is a test helper.
 func (f *FakeStore) HasSession(token string) bool {

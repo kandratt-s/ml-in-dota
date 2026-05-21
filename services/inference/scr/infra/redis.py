@@ -165,6 +165,7 @@ class InferenceRedisRepository:
 
 	async def set_heatmap(self, heatmap_key: str, heatmap: list[list[float]]) -> None:
 		await self._client.set(heatmap_key, json.dumps(heatmap, ensure_ascii=False), ex=60)
+		await self._client.publish(f"{heatmap_key}:updates", "1")
 
 
 class PredictionConfigRepository:

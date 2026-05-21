@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -39,6 +40,10 @@ type Store interface {
 	Close() error
 }
 
+type heatmapSubscriber interface {
+	SubscribeHeatmapUpdates(ctx context.Context, token string) (<-chan struct{}, func(), error)
+}
+
 type RedisStore struct {
 	rdb        *redis.Client
 	heatmapKey string
@@ -70,6 +75,10 @@ func tokenHeatmapKey(baseKey, token string) string {
 		return baseKey
 	}
 	return fmt.Sprintf("%s:%s", baseKey, token)
+}
+
+func heatmapUpdateChannel(baseKey, token string) string {
+	return tokenHeatmapKey(baseKey, token) + ":updates"
 }
 
 func snapshotKeyPattern(token string) string { return fmt.Sprintf("snapshot:%s:*", token) }
@@ -243,3 +252,45 @@ func (r *RedisStore) SetPredictionConfig(ctx context.Context, token string, cfg 
 
 func (r *RedisStore) Ping(ctx context.Context) error { return r.rdb.Ping(ctx).Err() }
 func (r *RedisStore) Close() error                   { return r.rdb.Close() }
+
+func (r *RedisStore) SubscribeHeatmapUpdates(ctx context.Context, token string) (<-chan struct{}, func(), error) {
+	channel := heatmapUpdateChannel(r.heatmapKey, token)
+	pubsub := r.rdb.Subscribe(ctx, channel)
+	if _, err := pubsub.Receive(ctx); err != nil {
+		_ = pubsub.Close()
+		return nil, nil, err
+	}
+
+	updates := make(chan struct{}, 1)
+	stop := make(chan struct{})
+	var once sync.Once
+	cleanup := func() {
+		once.Do(func() {
+			close(stop)
+			_ = pubsub.Close()
+		})
+	}
+
+	go func() {
+		defer close(updates)
+		ch := pubsub.Channel()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-stop:
+				return
+			case _, ok := <-ch:
+				if !ok {
+					return
+				}
+				select {
+				case updates <- struct{}{}:
+				default:
+				}
+			}
+		}
+	}()
+
+	return updates, cleanup, nil
+}
