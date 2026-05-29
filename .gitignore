@@ -188,7 +188,7 @@ tests
 #vscode
 .vscode/
 *.jsonl
-
+!scripts/gsi_jsonl/*.jsonl
 
 data/*.csv
 
