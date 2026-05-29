@@ -1,1 +1,3 @@
+*.jsonl filter=lfs diff=lfs merge=lfs -text
+scripts/gsi_jsonl/8654087914_gsi.jsonl filter=lfs diff=lfs merge=lfs -text
 scripts/gsi_jsonl/*.jsonl filter=lfs diff=lfs merge=lfs -text
